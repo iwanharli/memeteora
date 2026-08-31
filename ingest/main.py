@@ -634,7 +634,7 @@ def cmd_redflags(a):
         rows, blocks, hard_n = db.redflag_inputs(cur), [], 0
         for (addr, blacklisted, bin_step, fee_mode, mint, verified, ma, fa,
              ext, tfee, holders, fee_day, edge, lvr, turn, brk, sigma,
-             mcap, tvl) in rows:
+             mcap, tvl, from_peak, ch72, dd_obs) in rows:
             pool = dict(is_blacklisted=blacklisted, bin_step=bin_step,
                         collect_fee_mode=fee_mode)
             token = dict(is_verified=verified, mint_auth_active=ma,
@@ -642,7 +642,9 @@ def cmd_redflags(a):
                          transfer_fee_bps=tfee, holders=holders)
             score = dict(fee_day_pct=fee_day, edge_lvr_pct=edge, lvr_daily_pct=lvr,
                          turnover=turn, breakeven_turnover=brk, sigma_daily=sigma,
-                         mcap_tvl=(mcap / tvl) if (mcap and tvl) else None)
+                         mcap_tvl=(mcap / tvl) if (mcap and tvl) else None,
+                         from_peak_pct=from_peak, change_72h_pct=ch72,
+                         dd_obs=dd_obs)
             blocked, reasons = redflags.evaluate(pool, token, score)
             if any(redflags.is_hard(r) for r in reasons):
                 hard_n += 1

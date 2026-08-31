@@ -302,12 +302,14 @@ def redflag_inputs(cur):
                t.extensions, t.transfer_fee_bps, t.holders,
                v.fee_day_pct::float8, v.edge_lvr_pct::float8, v.lvr_daily_pct::float8,
                v.turnover::float8, v.breakeven_turnover::float8, v.sigma_daily::float8,
-               s.base_mcap::float8, s.tvl::float8
+               s.base_mcap::float8, s.tvl::float8,
+               d.from_peak_pct::float8, d.change_72h_pct::float8, d.n_obs
         FROM pools p
         LEFT JOIN tokens t ON t.mint = p.base_mint
         LEFT JOIN v_latest_scores v ON v.pool = p.address
         LEFT JOIN LATERAL (SELECT base_mcap, tvl FROM snapshots n
                            WHERE n.pool = p.address ORDER BY ts DESC LIMIT 1) s ON TRUE
+        LEFT JOIN v_drawdown d ON d.pool = p.address
     """)
     return cur.fetchall()
 

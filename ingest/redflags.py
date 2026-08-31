@@ -20,6 +20,16 @@ from mintcheck import HOSTILE, hostile_extensions
 TURNOVER_MARGIN = 0.75
 SIGMA_ABSURD = 1.5          # 150%/day: no fee tier covers this
 MCAP_TVL_TRAP = 150.0       # $150 of token value per $1 of exit liquidity
+
+# A collapsing token is the one case where a high edge is a warning rather than
+# an opportunity. Panic volume and the dynamic fee send fee/TVL through the
+# roof exactly while the asset being accumulated is dying: STACY-SOL showed
+# edge +31.5%/day at 83% below its peak, and nothing blocked it. Measured from
+# our own price series, which exists for every pool - the vendor had no row for
+# STACY at all.
+COLLAPSE_FROM_PEAK = -50.0
+COLLAPSE_72H = -45.0
+COLLAPSE_MIN_OBS = 20
 # ...but only where this pool really is the exit. A verified, widely held token
 # trades on many venues, so its mcap dwarfing one pool says nothing about
 # whether you can get out. Applying it blindly blocked SOL-USDC at 13,246x -
@@ -70,6 +80,20 @@ def evaluate(pool, base_token, score):
                           "not enough volume to pay for the volatility")
     if sigma is not None and sigma > SIGMA_ABSURD:
         structural.append(f"sigma-{sigma * 100:.0f}pct-daily: no fee tier covers this")
+    # A collapsing token is the one case where a high edge is a warning rather
+    # than an opportunity: the fee spike that produces it IS the panic selling.
+    n = score.get("dd_obs") or 0
+    peak = score.get("from_peak_pct")
+    ch72 = score.get("change_72h_pct")
+    if n >= COLLAPSE_MIN_OBS and peak is not None and peak <= COLLAPSE_FROM_PEAK:
+        structural.append(
+            f"collapsed-{abs(peak):.0f}pct-from-peak: a position here accumulates "
+            "the falling token, and the fee spike that makes the edge look good "
+            "is the panic selling doing it")
+    elif n >= COLLAPSE_MIN_OBS and ch72 is not None and ch72 <= COLLAPSE_72H:
+        structural.append(
+            f"down-{abs(ch72):.0f}pct-in-72h: a sustained decline, not a dip")
+
     thin_venue = not (base_token.get("is_verified")
                       and (base_token.get("holders") or 0) >= MANY_HOLDERS)
     if thin_venue and score.get("mcap_tvl") and score["mcap_tvl"] > MCAP_TVL_TRAP:
