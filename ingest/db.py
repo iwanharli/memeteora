@@ -403,11 +403,19 @@ def deployed_total(cur):
 
 
 def tradeable(cur, limit=40, max_risk=45):
-    """Candidates with everything the allocator needs, including how many price
-    points the volatility estimate rests on."""
+    """Candidates with everything the allocator needs.
+
+    n_obs must count the series sigma was actually computed from. Counting only
+    `prices` rejected every candidate on a fresh deployment: sigma came from 100
+    vendor candles while the on-chain series was an hour old with 11 points, and
+    the data-quality floor read that as "not enough data" for pools that had
+    plenty."""
     cur.execute("""SELECT v.pool, v.name, p.base_mint, v.edge_lvr_pct::float8,
                           v.sigma_daily::float8, v.risk::float8,
-                          (SELECT count(*) FROM prices pr WHERE pr.pool = v.pool),
+                          CASE WHEN v.vol_source = 'vendor'
+                               THEN (SELECT count(*) FROM ohlcv o WHERE o.pool = v.pool)
+                               ELSE (SELECT count(*) FROM prices pr WHERE pr.pool = v.pool)
+                          END AS n_obs,
                           t.is_verified, t.holders
                    FROM v_tradeable v JOIN pools p ON p.address = v.pool
                    JOIN tokens t ON t.mint = p.base_mint
