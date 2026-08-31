@@ -156,14 +156,21 @@ fn sortable(label: &str, key: &str, fl: &Filters) -> Markup {
 fn table(rows: &[PoolScore], fl: &Filters) -> Markup {
     html! {
         div."wrap" {
-            table {
+            table."pos" {
+                colgroup {
+                    col style="width:3%";  col style="width:12%"; col style="width:8%";
+                    col style="width:7%";  col style="width:6%";  col style="width:6%";
+                    col style="width:5%";  col style="width:6%";  col style="width:5%";
+                    col style="width:6%";  col style="width:5%";  col style="width:5%";
+                    col style="width:5%";  col style="width:4%";  col style="width:17%";
+                }
                 thead {
                     tr."grouprow" {
                         th."l" colspan="4" { "pool" }
                         th colspan="3" { "economics" }
                         th colspan="4" { "quality" }
                         th colspan="2" { "score" }
-                        th."l grow" colspan="2" { "" }
+                        th."l" colspan="2" { "" }
                     }
                     tr {
                         th."l" { "#" }
@@ -180,7 +187,7 @@ fn table(rows: &[PoolScore], fl: &Filters) -> Markup {
                         (sortable("risk", "risk", fl))
                         (sortable("adj", "adjusted", fl))
                         th { "bin" }
-                        th."grow" { "flags" }
+                        th."l" { "flags" }
                     }
                 }
                 tbody {
@@ -207,7 +214,7 @@ fn table(rows: &[PoolScore], fl: &Filters) -> Markup {
                             td { span class={ "rk " (risk_band(r.risk)) } { (f(Some(r.risk), 1)) } }
                             td."key" { (f(Some(r.adjusted), 1)) }
                             td."mute" { (r.bin_step.unwrap_or(0)) }
-                            td."grow" { div."flags" {
+                            td { div."flags" {
                                 @let all = r.risk_flags.as_deref().unwrap_or(&[]);
                                 @for fg in all.iter().take(FLAG_LIMIT) {
                                     span class={ "flag " (flag_class(fg)) } { (fg) }

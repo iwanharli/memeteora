@@ -187,7 +187,7 @@ td.mute{color:var(--dim)}
 .rk.low{color:var(--pos)} .rk.mid{color:var(--warn)} .rk.high{color:var(--neg)}
 
 /* ---------- chips ---------- */
-.flags{display:flex;gap:5px;align-items:center;flex-wrap:nowrap;overflow:hidden}
+.flags{display:flex;gap:5px;align-items:center;flex-wrap:wrap;row-gap:4px}
 .flag{font-size:11px;line-height:1.7;padding:0 7px;border-radius:4px;
   background:var(--raise);color:var(--ink2);white-space:nowrap}
 .flag.sev{background:color-mix(in srgb,var(--neg) 15%,transparent);color:var(--neg)}
