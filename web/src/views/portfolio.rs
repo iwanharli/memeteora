@@ -295,11 +295,17 @@ fn deployed_detail(rows: &[PaperPosition]) -> Markup {
 
     html! {
         div."wrap" style="margin-top:10px" {
-            table style="min-width:940px" {
+            table."cap" {
+                colgroup {
+                    col style="width:12%"; col style="width:10%"; col style="width:8%";
+                    col style="width:8%";  col style="width:8%";  col style="width:6%";
+                    col style="width:10%"; col style="width:7%";  col style="width:10%";
+                    col style="width:21%";
+                }
                 thead { tr {
                     th."l" { "pool" } th."l" { "address" } th."l" { "sleeve" } th { "bin step" } th { "fee tier" }
                     th { "bins" } th { "deployed" } th { "share" } th { "value now" }
-                    th."l grow" { "composition now" }
+                    th."l" { "composition now" }
                 } }
                 tbody {
                     @for r in rows {
@@ -314,7 +320,7 @@ fn deployed_detail(rows: &[PaperPosition]) -> Markup {
                             td { (usd(Some(r.capital_usd))) }
                             td."mute" { (format!("{:.1}%", r.capital_usd / total * 100.0)) }
                             td { (usd(r.value_usd)) }
-                            td."l grow" {
+                            td."l" {
                                 @match share {
                                     Some(sh) => {
                                         div."mixbar" {
@@ -430,7 +436,12 @@ fn ago(hours: Option<f64>) -> String {
 fn live_table(rows: &[PaperPosition]) -> Markup {
     html! {
         div."wrap plain" {
-            table style="min-width:1080px" {
+            table."pos" {
+                colgroup {
+                    col style="width:23%"; col style="width:11%"; col style="width:13%";
+                    col style="width:21%"; col style="width:11%"; col style="width:12%";
+                    col style="width:9%";
+                }
                 thead { tr {
                     th."l" { "pool / position" }
                     th."l" { "PnL vs hold" }
@@ -438,7 +449,7 @@ fn live_table(rows: &[PaperPosition]) -> Markup {
                     th."l" { "range" }
                     th."l" { "fees" }
                     th."l" { "cost" }
-                    th."l grow" { "status" }
+                    th."l" { "status" }
                 } }
                 tbody {
                     @for r in rows {
@@ -495,7 +506,7 @@ fn live_table(rows: &[PaperPosition]) -> Markup {
                                     span."t3" { "gas " (f(r.gas_usd, 3)) }
                                 }
                             }
-                            td."l grow" {
+                            td."l" {
                                 div."two" {
                                     span."t1" {
                                         @if r.in_range.unwrap_or(false) {
@@ -524,13 +535,17 @@ fn live_table(rows: &[PaperPosition]) -> Markup {
 fn closed_table(rows: &[ClosedPosition]) -> Markup {
     html! {
         div."wrap plain" {
-            table style="min-width:900px" {
+            table."pos" {
+                colgroup {
+                    col style="width:22%"; col style="width:12%"; col style="width:13%";
+                    col style="width:13%"; col style="width:40%";
+                }
                 thead { tr {
                     th."l" { "pool" }
                     th."l" { "realised" }
                     th."l" { "deposit" }
                     th."l" { "fees earned" }
-                    th."l grow" { "why it was closed" }
+                    th."l" { "why it was closed" }
                 } }
                 tbody {
                     @for r in rows {
@@ -553,7 +568,7 @@ fn closed_table(rows: &[ClosedPosition]) -> Markup {
                             }
                             td."l" { span."chip" { (usd(Some(r.capital_usd))) } }
                             td."l" { span."chip pos" { (f(r.realized_fees, 2)) } }
-                            td."l grow mute" { (r.close_reason.clone().unwrap_or_default()) }
+                            td."l mute" { (r.close_reason.clone().unwrap_or_default()) }
                         }
                     }
                 }

@@ -263,6 +263,19 @@ td.edgecell{font-size:15px;font-weight:680;letter-spacing:-.01em}
    remainder is the layout that actually holds. */
 .wrap table th,.wrap table td{width:1%;white-space:nowrap}
 .wrap table th.grow,.wrap table td.grow{width:100%}
+
+/* fixed layout so the declared column widths are honoured rather than
+   treated as hints the browser may override to fit content */
+table.pos,table.cap{table-layout:fixed;width:100%}
+/* .wrap sets width:1% + nowrap to shrink columns to their content, which is
+   what clustered these tables against the left edge. Declared widths only
+   hold once both are lifted. */
+table.pos th,table.pos td,table.cap th,table.cap td{width:auto}
+/* only the stacked context lines wrap; figures and labels stay on one line,
+   and nothing breaks mid-word */
+table.pos .two,table.pos .rng-ids,table.pos .mixlab,
+table.cap .mixlab{white-space:normal;overflow-wrap:normal}
+
 .sp-up{color:var(--pos)} .sp-down{color:var(--neg)}
 
 /* ---------- daily ---------- */
@@ -346,7 +359,7 @@ td.edgecell{font-size:15px;font-weight:680;letter-spacing:-.01em}
 .row3 .v{font-size:15px;font-weight:600;margin-top:1px}
 
 /* ---------- misc ---------- */
-.mixbar{display:flex;height:5px;border-radius:3px;overflow:hidden;width:150px;
+.mixbar{display:flex;height:5px;border-radius:3px;overflow:hidden;width:100%;max-width:320px;
   background:var(--raise)}
 .mix-b{background:var(--warn)} .mix-q{background:var(--accent)}
 .mixlab{display:block;font-size:11px;color:var(--dim);margin-top:3px}
