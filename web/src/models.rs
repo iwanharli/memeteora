@@ -169,6 +169,15 @@ impl PaperPosition {
 }
 
 impl PaperPosition {
+    /// Meteora's own PnL: (balance + withdraw + claimable + claimed) - deposits.
+    /// Withdraw and claimed are always zero here - the simulation never takes
+    /// money out or claims - so it collapses to balance + fees - deposit.
+    /// Measured against the dollars put in, not against holding the tokens,
+    /// so it moves with the market as well as with the position.
+    pub fn pnl_vs_deposit(&self) -> Option<f64> {
+        Some(self.value_usd? + self.fees_usd.unwrap_or(0.0) - self.capital_usd)
+    }
+
 }
 
 

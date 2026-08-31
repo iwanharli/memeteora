@@ -46,12 +46,19 @@ pub fn page(rows: &[PaperPosition], closed: &[ClosedPosition],
             @let ctrl_pct = ctrl.pnl / ctrl.cap.max(1.0) * 100.0;
             div."hero" {
                 div."hero-main" {
-                    div."k" { "Recommended — PnL vs holding" }
-                    div class={ "big " (cls(picks.pnl)) } {
-                        (signed(Some(picks.pnl), 2))
-                        span."pct" { (signed(Some(pick_pct), 2)) "%" }
+                    div."k" { "Recommended — profit & loss" }
+                    div class={ "big " (cls(picks.dep)) } {
+                        (signed(Some(picks.dep), 2))
+                        span."pct" { (signed(Some(picks.dep / picks.cap.max(1.0) * 100.0), 2)) "%" }
+                    }
+                    p."note" style="margin-top:2px" {
+                        "(balance + claimable fees) − deposits, the same figure Meteora shows. "
+                        "Excludes gas and refundable rent."
                     }
                     div."row3" {
+                        div { span."k" { "vs holding" }
+                              div class={ "v " (cls(picks.pnl)) } { (signed(Some(picks.pnl), 2))
+                                  " " span."pct" { (signed(Some(pick_pct), 2)) "%" } } }
                         div { span."k" { "Positions" } div."v" { (picks.n) } }
                         div { span."k" { "Deployed" } div."v" { (usd(Some(picks.cap))) } }
                         div { span."k" { "Beat holding" } div."v" { (wins) "/" (rows.len()) } }
@@ -76,9 +83,9 @@ pub fn page(rows: &[PaperPosition], closed: &[ClosedPosition],
                         }
                         div."row3" {
                             div { span."k" { "core" } div."v" { (usd(Some(core.cap)))
-                                  " · " span class=(cls(core.pnl)) { (signed(Some(core.pnl), 2)) } } }
+                                  " · " span class=(cls(core.dep)) { (signed(Some(core.dep), 2)) } } }
                             div { span."k" { "satellite" } div."v" { (usd(Some(sat.cap)))
-                                  " · " span class=(cls(sat.pnl)) { (signed(Some(sat.pnl), 2)) } } }
+                                  " · " span class=(cls(sat.dep)) { (signed(Some(sat.dep), 2)) } } }
                             div { span."k" { "fees" } div."v pos" { (usd(Some(fees))) } }
                             div { span."k" { "gas" } div."v dim" { (f(Some(gas), 3)) } }
                         }
@@ -141,10 +148,11 @@ fn kind(strategy: &str) -> Kind {
 }
 
 fn sleeve(rows: &[PaperPosition], name: &str) -> Group {
-    let mut g = Group { cap: 0.0, pnl: 0.0, n: 0 };
+    let mut g = Group { cap: 0.0, pnl: 0.0, dep: 0.0, n: 0 };
     for r in rows.iter().filter(|r| r.strategy == name) {
         g.cap += r.capital_usd;
         g.pnl += r.net_pnl.unwrap_or(0.0);
+        g.dep += r.pnl_vs_deposit().unwrap_or(0.0);
         g.n += 1;
     }
     g
@@ -153,14 +161,15 @@ fn sleeve(rows: &[PaperPosition], name: &str) -> Group {
 #[derive(PartialEq, Clone, Copy)]
 enum Kind { Pick, Control, Experiment }
 
-struct Group { cap: f64, pnl: f64, n: usize }
+struct Group { cap: f64, pnl: f64, dep: f64, n: usize }
 
 fn group(rows: &[PaperPosition], k: Kind) -> Group {
     let sel = rows.iter().filter(|r| kind(&r.strategy) == k);
-    let mut g = Group { cap: 0.0, pnl: 0.0, n: 0 };
+    let mut g = Group { cap: 0.0, pnl: 0.0, dep: 0.0, n: 0 };
     for r in sel {
         g.cap += r.capital_usd;
         g.pnl += r.net_pnl.unwrap_or(0.0);
+        g.dep += r.pnl_vs_deposit().unwrap_or(0.0);
         g.n += 1;
     }
     g
@@ -366,6 +375,8 @@ fn positions_card(rows: &[PaperPosition], closed: &[ClosedPosition]) -> Markup {
     let net: f64 = rows.iter().filter_map(|r| r.net_pnl).sum();
     let fees: f64 = rows.iter().filter_map(|r| r.fees_usd).sum();
     let net_pct = if deployed > 0.0 { net / deployed * 100.0 } else { 0.0 };
+    let dep: f64 = rows.iter().filter_map(|r| r.pnl_vs_deposit()).sum();
+    let dep_pct = if deployed > 0.0 { dep / deployed * 100.0 } else { 0.0 };
 
     let c_cap: f64 = closed.iter().map(|r| r.capital_usd).sum();
     let c_pnl: f64 = closed.iter().filter_map(|r| r.realized_pnl).sum();
@@ -385,7 +396,10 @@ fn positions_card(rows: &[PaperPosition], closed: &[ClosedPosition]) -> Markup {
                     span."pcard-icon" { "◧" }
                     strong { "DLMM positions" }
                     div."pcard-stats" {
-                        div { span."k" { "net vs hold" }
+                        div { span."k" { "profit & loss" }
+                              span class={ "v " (cls(dep)) } { (signed(Some(dep), 2))
+                                  " " span."pct" { "(" (signed(Some(dep_pct), 2)) "%)" } } }
+                        div { span."k" { "vs holding" }
                               span class={ "v " (cls(net)) } { (signed(Some(net), 2))
                                   " " span."pct" { "(" (signed(Some(net_pct), 2)) "%)" } } }
                         div { span."k" { "deployed" } span."v" { (usd(Some(deployed))) } }
@@ -438,13 +452,14 @@ fn live_table(rows: &[PaperPosition]) -> Markup {
         div."wrap plain" {
             table."pos" {
                 colgroup {
-                    col style="width:23%"; col style="width:11%"; col style="width:13%";
-                    col style="width:21%"; col style="width:11%"; col style="width:12%";
-                    col style="width:9%";
+                    col style="width:20%"; col style="width:11%"; col style="width:11%";
+                    col style="width:12%"; col style="width:19%"; col style="width:9%";
+                    col style="width:10%"; col style="width:8%";
                 }
                 thead { tr {
                     th."l" { "pool / position" }
-                    th."l" { "PnL vs hold" }
+                    th."l" { "profit & loss" }
+                    th."l" { "vs holding" }
                     th."l" { "liquidity" }
                     th."l" { "range" }
                     th."l" { "fees" }
@@ -467,15 +482,21 @@ fn live_table(rows: &[PaperPosition]) -> Markup {
                                     span."t3" { (meteora_link(&r.pool)) " · opened " (ago(r.hours_open)) }
                                 }
                             }
+                            @let dep = r.pnl_vs_deposit();
+                            td."l" {
+                                div."two" {
+                                    span class={ "t1 " (cls(dep.unwrap_or(0.0))) } {
+                                        (signed(dep, 2)) }
+                                    span class={ "t2 " (cls(dep.unwrap_or(0.0))) } {
+                                        (signed(dep.map(|d| d / r.capital_usd * 100.0), 3)) "%" }
+                                }
+                            }
                             td."l" {
                                 div."two" {
                                     span class={ "t1 " (cls(r.net_pnl.unwrap_or(0.0))) } {
                                         (signed(r.net_pnl, 2)) }
                                     span class={ "t2 " (cls(r.pnl_pct.unwrap_or(0.0))) } {
                                         (signed(r.pnl_pct, 3)) "%" }
-                                    span."t3" { "vs deposit "
-                                        (signed(r.value_usd.map(|v| v + r.fees_usd.unwrap_or(0.0)
-                                                                     - r.capital_usd), 2)) }
                                 }
                             }
                             td."l" {
