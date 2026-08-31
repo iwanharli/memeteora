@@ -1,0 +1,25 @@
+{
+  "name": "memet-exec",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reads execution intents from db_memet, builds and simulates the transactions. Never signs, never sends.",
+  "scripts": {
+    "build": "tsc",
+    "dry-run": "tsx src/index.ts --dry-run",
+    "once": "tsx src/index.ts --dry-run --once"
+  },
+  "dependencies": {
+    "@meteora-ag/dlmm": "^1.9.14",
+    "@solana/web3.js": "^1.98.0",
+    "bn.js": "^5.2.1",
+    "decimal.js": "^10.4.3",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

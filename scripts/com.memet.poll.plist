@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.memet.poll</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/iwanharli/Harlixuan/PROJECT/PY/memet/scripts/run_poll.sh</string>
+    </array>
+
+    <!-- wall-clock aligned, so windows line up across days -->
+    <!-- every 5 minutes: 288 price points per pool per day, enough for
+         realised volatility without leaning on any vendor -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/iwanharli/Harlixuan/PROJECT/PY/memet</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>MEMET_DSN</key>
+        <string>dbname=db_memet</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/iwanharli/Harlixuan/PROJECT/PY/memet/logs/poll.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/iwanharli/Harlixuan/PROJECT/PY/memet/logs/poll.err.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

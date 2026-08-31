@@ -1,0 +1,22 @@
+[package]
+name = "memet-web"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio", "postgres", "chrono", "macros"
+] }
+maud = "0.26"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tower-http = { version = "0.6", features = ["trace", "compression-gzip"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+
+[profile.release]
+opt-level = 2

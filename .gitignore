@@ -1,0 +1,24 @@
+# build artefacts
+__pycache__/
+*.pyc
+web/target/
+exec/node_modules/
+exec/dist/
+node_modules/
+
+# runtime state, never source
+logs/
+HALT
+
+# anything that could carry a secret
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.keypair
+id_*
+wallet*.json
+
+# personal working notes - keep out of a public repo
+*.pdf
