@@ -22,7 +22,7 @@ Set $MEMET_DSN to point at another database.
 import argparse, sys, time
 from datetime import datetime, timezone
 
-import actions, db, exits, gates, mintcheck, ohlcv, onchain, paper, redflags, scoring, sizing, sources, timeutil, volatility, worker
+import actions, db, exits, gates, mintcheck, ohlcv, onchain, paper, redflags, scoring, sizing, sources, timeutil, volatility, worker, zapout
 
 
 def cmd_ingest(a):
@@ -478,8 +478,17 @@ def cmd_manage(a):
                 db.log_action(cur, "close", reason, pool=pool, position_id=pid,
                               pnl=realized, gas=gas_close)
                 if a.emit_intents:
+                    # a memecoin position returns the memecoin; Zap Out swaps it
+                    # on the way out rather than leaving it to be held
+                    cur.execute("""SELECT po.base_mint, po.mint_y, t.symbol
+                                   FROM pools po LEFT JOIN tokens t ON t.mint = po.base_mint
+                                   WHERE po.address = %s""", (pool,))
+                    mrow = cur.fetchone() or (None, None, None)
+                    out_mint, out_why = zapout.output_mint(
+                        mrow[0], mrow[1], strategy, live.get("sigma_daily"))
                     db.record_intent(cur, "close", pool,
-                                     dict(position_id=pid, value_usd=value),
+                                     dict(position_id=pid, value_usd=value,
+                                          zap_out_to=out_mint, zap_out_why=out_why),
                                      reason, _dedupe("close", pool, cycle, str(pid)),
                                      position_id=pid)
                 did["close"] += 1

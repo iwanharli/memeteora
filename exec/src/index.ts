@@ -84,6 +84,23 @@ async function handle(intent: Awaited<ReturnType<typeof claim>>) {
     }
 
     if (kind === "close") {
+      // Zap Out is a swap on the way out, so it is priced like one. The engine
+      // picks the destination; here we find out what the route actually costs.
+      const zapTo = params.zap_out_to as string | undefined;
+      if (zapTo && meta) {
+        const usd = Number(params.value_usd ?? 0);
+        const amt = BigInt(Math.floor((usd / (sol || 1)) * 10 ** meta.dec_x));
+        const q = await quote(meta.mint_x, zapTo, amt, 50);
+        if (q) {
+          log("INFO", `#${id} close ${name} — zap out $${usd.toFixed(2)} to ` +
+            `${zapTo.slice(0, 4)}…, price impact ${impactPct(q).toFixed(3)}% ` +
+            `(${params.zap_out_why ?? ""})`);
+        } else {
+          log("WARN", `#${id} close ${name} — no zap-out route to ${zapTo.slice(0, 4)}…; ` +
+            `the position would return its raw tokens`);
+        }
+      }
+
       // needs the on-chain position address, which only exists once the open
       // has actually been executed - in dry-run there is nothing to close
       const onchain = params.position_pubkey as string | undefined;
