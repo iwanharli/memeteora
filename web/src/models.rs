@@ -207,3 +207,13 @@ pub struct BookState {
     pub idle: f64,
     pub sol_price: Option<f64>,
 }
+
+
+/// One day of the book: how much it made, in fees, across how many positions.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct DailyPnl {
+    pub day: chrono::NaiveDate,
+    pub pnl: Option<f64>,
+    pub fees: Option<f64>,
+    pub positions: i64,
+}

@@ -1,7 +1,7 @@
 use maud::{html, Markup};
 
 use super::{f, meteora_link, signed, usd};
-use crate::models::{BookState, ClosedPosition, PaperPosition};
+use crate::models::{BookState, ClosedPosition, DailyPnl, PaperPosition};
 
 /// Simulated portfolio. Laid out like Meteora's own portfolio page, with one
 /// column it does not have: PnL against simply holding the tokens.
@@ -11,7 +11,7 @@ use crate::models::{BookState, ClosedPosition, PaperPosition};
 /// whether LPing was the right call. The only question that matters is whether
 /// providing liquidity beat doing nothing with the same tokens.
 pub fn page(rows: &[PaperPosition], closed: &[ClosedPosition],
-            book: Option<&BookState>) -> Markup {
+            book: Option<&BookState>, daily: &[DailyPnl]) -> Markup {
     let deposit: f64 = rows.iter().map(|r| r.capital_usd).sum();
     let value: f64 = rows.iter().filter_map(|r| r.value_usd).sum();
     let fees: f64 = rows.iter().filter_map(|r| r.fees_usd).sum();
@@ -105,6 +105,7 @@ pub fn page(rows: &[PaperPosition], closed: &[ClosedPosition],
                 }
                 }
             }
+            (super::daily::section(daily))
             @if let Some(b) = book { (capital_bar(b)) }
             (deployed_detail(rows))
             p."note" {

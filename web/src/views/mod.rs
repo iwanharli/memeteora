@@ -1,6 +1,7 @@
 pub mod layout;
 pub mod dashboard;
 pub mod detail;
+pub mod daily;
 pub mod portfolio;
 
 /// A pool address, shortened for the table but linking out in full. The name

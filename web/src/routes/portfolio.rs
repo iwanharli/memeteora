@@ -8,5 +8,6 @@ pub async fn get(State(st): State<AppState>) -> Result<Html<String>, AppError> {
     let rows = db::paper_positions(&st.db).await?;
     let closed = db::closed_positions(&st.db, 40).await?;
     let book = db::book_state(&st.db).await?;
-    Ok(Html(views::portfolio::page(&rows, &closed, book.as_ref()).into_string()))
+    let daily = db::daily_pnl(&st.db, 120).await?;
+    Ok(Html(views::portfolio::page(&rows, &closed, book.as_ref(), &daily).into_string()))
 }

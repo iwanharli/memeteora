@@ -194,6 +194,49 @@ td.mute{color:var(--dim)}
 .flag.good{background:color-mix(in srgb,var(--pos) 15%,transparent);color:var(--pos)}
 .more{font-size:11px;color:var(--dim)}
 /* the address links out to Meteora; muted so it never competes with the name */
+/* ---------- daily ---------- */
+.daily{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  overflow:hidden}
+.daily-head{display:flex;flex-wrap:wrap;gap:16px;align-items:center;
+  justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line);
+  background:var(--panel2)}
+.daily-stats{display:flex;gap:28px;flex-wrap:wrap}
+.daily-stats .k{font-size:10.5px;color:var(--dim);font-weight:500}
+.daily-stats .v{font-size:16px;font-weight:600;margin-top:1px}
+/* radios drive the toggle: no script, and the state survives a page swap */
+.daily-tabs{display:inline-flex;background:var(--bg);border:1px solid var(--line2);
+  border-radius:8px;padding:2px}
+.daily-tabs input{position:absolute;opacity:0;pointer-events:none}
+.daily-tabs label{font-size:12.5px;color:var(--dim);padding:5px 14px;border-radius:6px;
+  cursor:pointer;user-select:none}
+.daily-tabs label:hover{color:var(--ink)}
+#tab-cal:checked ~ label[for="tab-cal"],
+#tab-bar:checked ~ label[for="tab-bar"]{background:var(--panel);color:var(--ink)}
+.daily-body{padding:14px 16px 16px}
+.daily-body .bars{display:none}
+.daily:has(#tab-bar:checked) .cal{display:none}
+.daily:has(#tab-bar:checked) .bars{display:block}
+
+.cal-head{display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:10px;font-size:13.5px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal-dow{font-size:10.5px;color:var(--dim);text-align:center;padding-bottom:2px}
+.cal-pad{min-height:62px}
+.cal-cell{min-height:62px;border:1px solid var(--line);border-radius:7px;padding:6px 8px;
+  display:flex;flex-direction:column;gap:1px;background:var(--bg)}
+.cal-d{font-size:11px;color:var(--dim)}
+.cal-v{font-size:14px;font-weight:640;margin-top:auto}
+.cal-n{font-size:10px;color:var(--dim)}
+.c-pos{border-color:color-mix(in srgb,var(--pos) 45%,transparent);
+  background:color-mix(in srgb,var(--pos) 8%,var(--bg))}
+.c-neg{border-color:color-mix(in srgb,var(--neg) 45%,transparent);
+  background:color-mix(in srgb,var(--neg) 8%,var(--bg))}
+.c-none{opacity:.4}
+
+.barchart{width:100%;height:230px;color:var(--ink2);display:block}
+.b-pos{fill:var(--pos)} .b-neg{fill:var(--neg)}
+.b-label{fill:var(--dim);font-size:9px;font-family:var(--ui)}
+
 .rng{display:flex;flex-direction:column;gap:2px;min-width:150px}
 .rng-ids{font-size:11.5px;color:var(--ink2)}
 .rng-px{font-size:10.5px;color:var(--dim)}

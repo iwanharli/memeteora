@@ -186,3 +186,16 @@ pub async fn book_state(db: &PgPool) -> Result<Option<crate::models::BookState>>
     .fetch_optional(db)
     .await?)
 }
+
+
+pub async fn daily_pnl(db: &PgPool, days: i32) -> Result<Vec<crate::models::DailyPnl>> {
+    Ok(sqlx::query_as::<_, crate::models::DailyPnl>(
+        "SELECT day, pnl::float8 AS pnl, fees::float8 AS fees, positions
+           FROM v_daily_pnl
+          WHERE day > (now() AT TIME ZONE 'Asia/Jakarta')::date - $1::int
+          ORDER BY day",
+    )
+    .bind(days)
+    .fetch_all(db)
+    .await?)
+}
