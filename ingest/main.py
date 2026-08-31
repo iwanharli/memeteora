@@ -359,22 +359,28 @@ def cmd_paper_report(a):
         cur.execute("""SELECT id, name, strategy, shape, n_bins, capital_usd,
                               hours_open, price, in_range, value_usd, fees_usd,
                               hold_usd, pnl_vs_hold, pnl_pct, rebalances, marked_at,
-                              gas_usd, rent_usd, net_pnl
-                       FROM v_paper_latest ORDER BY pnl_pct DESC NULLS LAST""")
+                              gas_usd, rent_usd, net_pnl, min_bin, max_bin,
+                              min_price::float8, max_price::float8
+                       FROM v_paper_latest WHERE closed_at IS NULL
+                       ORDER BY pnl_pct DESC NULLS LAST""")
         rows = cur.fetchall()
     if not rows:
         return "no paper positions yet - `paper open <pool>` to start one"
-    print(f"\n{'#':>3} {'pool':<14}{'shape':>7}{'bins':>5}{'hrs':>6}{'cap':>7}"
-          f"{'value':>9}{'fees':>7}{'hold':>9}{'gross':>8}{'gas':>6}{'net':>8}"
-          f"{'net%':>8}{'rent':>7}{'rng':>5}")
-    print("-" * 113)
+    print(f"\n{'#':>3} {'pool':<14}{'shape':>7}{'bins':>6}{'bin range':>17}"
+          f"{'price range':>25}{'cap':>7}{'fees':>7}{'net':>8}{'net%':>8}{'rng':>5}")
+    print("-" * 108)
     for (pid, name, strat, shape, nb, cap, hrs, price, inr, val, fees,
-         hold, pnl, pnlpct, reb, _ts, gas, rent, net) in rows:
+         hold, pnl, pnlpct, reb, _ts, gas, rent, net,
+         minb, maxb, minp, maxp) in rows:
         def f(v, d=2, sign=""):
             return format(float(v), f"{sign},.{d}f") if v is not None else "-"
-        print(f"{pid:>3} {name[:13]:<14}{shape:>7}{nb:>5}{f(hrs,1):>6}{f(cap,0):>7}"
-              f"{f(val):>9}{f(fees):>7}{f(hold):>9}{f(pnl,2,'+'):>8}{f(gas):>6}"
-              f"{f(net,2,'+'):>8}{f(pnlpct,3,'+'):>8}{f(rent):>7}"
+        def px(v):
+            if v is None: return "-"
+            return f"{v:,.2f}" if v >= 100 else (f"{v:.4f}" if v >= 1 else f"{v:.8f}")
+        rng = f"{minb} … {maxb}" if minb is not None else "-"
+        prng = f"{px(minp)} – {px(maxp)}"
+        print(f"{pid:>3} {name[:13]:<14}{shape:>7}{nb:>6}{rng:>17}{prng:>25}"
+              f"{f(cap,0):>7}{f(fees):>7}{f(net,2,'+'):>8}{f(pnlpct,3,'+'):>8}"
               f"{'in' if inr else 'OUT':>5}")
     print("\nnet = value + fees - hold - gas. Positive means LPing beat holding")
     print("the same tokens, after transaction costs. rent is locked in the position")

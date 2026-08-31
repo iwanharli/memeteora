@@ -237,6 +237,41 @@ fn section_other(rows: &[PaperPosition]) -> Markup {
     html! { h2 { "Other" } (table(&subset)) }
 }
 
+/// Bin ids plus the prices they sit at, with a marker for where the price is
+/// inside the range. The ids alone say nothing you can check against a chart.
+fn range_cell(r: &PaperPosition) -> Markup {
+    let (lo, hi) = (r.min_bin, r.max_bin);
+    if lo.is_none() || hi.is_none() {
+        return html! { span."dim" { "–" } };
+    }
+    let pos = r.range_position();
+    html! {
+        div."rng" {
+            span."rng-ids" { (lo.unwrap()) " … " (hi.unwrap()) }
+            @if let Some(p) = pos {
+                div."rng-bar" {
+                    div."rng-dot" style=(format!("left:{:.1}%", p * 100.0)) {}
+                }
+            }
+            span."rng-px" {
+                (price(r.min_price)) " – " (price(r.max_price))
+            }
+        }
+    }
+}
+
+/// Prices span many orders of magnitude here - SOL near 100, a memecoin near
+/// 0.00008 - so significant figures matter more than a fixed decimal count.
+fn price(v: Option<f64>) -> String {
+    match v {
+        Some(x) if x >= 100.0 => format!("{x:.2}"),
+        Some(x) if x >= 1.0 => format!("{x:.4}"),
+        Some(x) if x >= 0.0001 => format!("{x:.6}"),
+        Some(x) => format!("{x:.9}"),
+        None => "–".into(),
+    }
+}
+
 /// The reasons carry the mechanism, so they belong on the row rather than in a
 /// separate report the reader has to go and find.
 fn exit_cell(r: &PaperPosition) -> Markup {
@@ -258,8 +293,10 @@ fn table(rows: &[&PaperPosition]) -> Markup {
             table style="min-width:1000px" {
                 thead { tr {
                     th."l" { "pool" }
+                    th."l" { "address" }
                     th."l" { "shape" }
                     th { "bins" }
+                    th."l" { "range · bin ids and price" }
                     th { "hrs" }
                     th { "deposit" }
                     th { "liquidity" }
@@ -281,8 +318,10 @@ fn table(rows: &[&PaperPosition]) -> Markup {
                                 @if r.blocked.unwrap_or(false) {
                                     span."flagdot" title="red-flagged pool" { "!" }
                                 } }
+                            td."l" { (meteora_link(&r.pool)) }
                             td."l dim" { (r.shape) }
                             td { (r.n_bins) }
+                            td."l" { (range_cell(r)) }
                             td."dim" { (f(r.hours_open, 1)) }
                             td { (usd(Some(r.capital_usd))) }
                             td { (usd(r.value_usd)) }

@@ -138,9 +138,22 @@ pub struct PaperPosition {
     pub quote_symbol: Option<String>,
     pub base_amt: Option<f64>,
     pub quote_amt: Option<f64>,
+    pub center_bin: Option<i32>,
+    pub min_bin: Option<i32>,
+    pub max_bin: Option<i32>,
+    pub min_price: Option<f64>,
+    pub max_price: Option<f64>,
+    pub active_id: Option<i32>,
 }
 
 impl PaperPosition {
+    /// Where the price sits inside the range, 0 at the lower bound and 1 at the
+    /// upper. Outside those bounds it clamps, and `in_range` says which side.
+    pub fn range_position(&self) -> Option<f64> {
+        let (lo, hi, p) = (self.min_price?, self.max_price?, self.price?);
+        (hi > lo).then(|| ((p - lo) / (hi - lo)).clamp(0.0, 1.0))
+    }
+
     /// What fraction of the position's value currently sits in the base token.
     /// A DLMM position converts as the price walks through its bins, so this is
     /// not the deposit split - it is what the market has made of it since.

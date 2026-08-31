@@ -142,7 +142,10 @@ pub async fn paper_positions(db: &PgPool) -> Result<Vec<crate::models::PaperPosi
                 v.hours_out::float8 AS hours_out, v.out_side,
                 v.bin_step, v.base_fee_pct::float8 AS base_fee_pct,
                 v.base_symbol, v.quote_symbol,
-                v.base_amt::float8 AS base_amt, v.quote_amt::float8 AS quote_amt
+                v.base_amt::float8 AS base_amt, v.quote_amt::float8 AS quote_amt,
+                v.center_bin, v.min_bin, v.max_bin,
+                v.min_price::float8 AS min_price, v.max_price::float8 AS max_price,
+                v.active_id
          FROM v_paper_latest v
          JOIN paper_positions p ON p.id = v.id
          LEFT JOIN v_latest_scores s ON s.pool = v.pool
