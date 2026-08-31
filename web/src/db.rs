@@ -157,7 +157,7 @@ pub async fn paper_positions(db: &PgPool) -> Result<Vec<crate::models::PaperPosi
 pub async fn closed_positions(db: &PgPool, limit: i64)
     -> Result<Vec<crate::models::ClosedPosition>> {
     Ok(sqlx::query_as::<_, crate::models::ClosedPosition>(
-        "SELECT id, name, strategy, shape, n_bins,
+        "SELECT id, pool, name, strategy, shape, n_bins,
                 capital_usd::float8   AS capital_usd,
                 closed_at,
                 hours_held::float8    AS hours_held,

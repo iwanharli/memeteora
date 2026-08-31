@@ -3,6 +3,23 @@ pub mod dashboard;
 pub mod detail;
 pub mod portfolio;
 
+/// A pool address, shortened for the table but linking out in full. The name
+/// alone is ambiguous - one token often has several pools at different bin
+/// steps, and they behave very differently.
+pub fn meteora_link(pool: &str) -> maud::Markup {
+    use maud::html;
+    let short = if pool.len() > 12 {
+        format!("{}…{}", &pool[..4], &pool[pool.len() - 4..])
+    } else {
+        pool.to_string()
+    };
+    html! {
+        a."addr" href={ "https://www.meteora.ag/dlmm/" (pool) }
+          target="_blank" rel="noreferrer noopener"
+          title={ "Open " (pool) " on Meteora" } { (short) }
+    }
+}
+
 /// Display timezone. Storage stays UTC in `timestamptz`; only rendering shifts.
 /// WIB has never observed DST, so a fixed +07:00 is exact, not an approximation.
 pub const WIB_OFFSET_SECS: i32 = 7 * 3600;

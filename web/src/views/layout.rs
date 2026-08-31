@@ -193,6 +193,10 @@ td.mute{color:var(--dim)}
 .flag.sev{background:color-mix(in srgb,var(--neg) 15%,transparent);color:var(--neg)}
 .flag.good{background:color-mix(in srgb,var(--pos) 15%,transparent);color:var(--pos)}
 .more{font-size:11px;color:var(--dim)}
+/* the address links out to Meteora; muted so it never competes with the name */
+.addr{font-size:11.5px;color:var(--dim);font-family:Menlo,Consolas,monospace;
+  border-bottom:1px dotted var(--line2)}
+.addr:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .pill{display:inline-block;padding:1px 8px;border-radius:4px;font-size:12px;font-weight:600;
   background:var(--raise);color:var(--ink2)}
 .pill.low{background:color-mix(in srgb,var(--pos) 15%,transparent);color:var(--pos)}

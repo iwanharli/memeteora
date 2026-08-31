@@ -1,6 +1,6 @@
 use maud::{html, Markup, PreEscaped};
 
-use super::{edge_class, f, risk_band, signed};
+use super::{edge_class, f, meteora_link, risk_band, signed};
 
 /// A daily sigma of 0.2576 reads as 25.8%.
 fn pct(v: Option<f64>) -> String {
@@ -134,6 +134,7 @@ fn table(rows: &[PoolScore], fl: &Filters) -> Markup {
                 thead { tr {
                     th."l" { "#" }
                     th."l" { "pool" }
+                    th."l" { "address" }
                     (sortable("adj", "adjusted", fl))
                     (sortable("opp", "opportunity", fl))
                     (sortable("risk", "risk", fl))
@@ -153,6 +154,7 @@ fn table(rows: &[PoolScore], fl: &Filters) -> Markup {
                         tr {
                             td."l idx" { (i + 1) }
                             td."l name" { a href={ "/pool/" (r.pool) } { (r.name) } }
+                            td."l" { (meteora_link(&r.pool)) }
                             td."key" { (f(Some(r.adjusted), 1)) }
                             td."mute" { (f(Some(r.opportunity), 1)) }
                             td { span class={ "rk " (risk_band(r.risk)) } { (f(Some(r.risk), 1)) } }

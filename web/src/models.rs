@@ -165,6 +165,7 @@ impl PaperPosition {
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct ClosedPosition {
     pub id: i64,
+    pub pool: String,
     pub name: String,
     pub strategy: String,
     pub shape: String,

@@ -1,6 +1,6 @@
 use maud::{html, Markup};
 
-use super::{f, signed, usd};
+use super::{f, meteora_link, signed, usd};
 use crate::models::{BookState, ClosedPosition, PaperPosition};
 
 /// Simulated portfolio. Laid out like Meteora's own portfolio page, with one
@@ -326,7 +326,7 @@ fn closed_section(rows: &[ClosedPosition]) -> Markup {
         div."wrap" {
             table style="min-width:960px" {
                 thead { tr {
-                    th."l" { "pool" } th."l" { "shape" } th { "bins" } th { "gen" }
+                    th."l" { "pool" } th."l" { "address" } th."l" { "shape" } th { "bins" } th { "gen" }
                     th { "held" } th { "deposit" } th { "fees" } th { "realised" }
                     th { "%" } th."l grow" { "why it was closed" }
                 } }
@@ -334,6 +334,7 @@ fn closed_section(rows: &[ClosedPosition]) -> Markup {
                     @for r in rows {
                         tr {
                             td."l name" { (r.name) }
+                            td."l" { (meteora_link(&r.pool)) }
                             td."l mute" { (r.shape) }
                             td."mute" { (r.n_bins) }
                             td."mute" { (r.generation) }
@@ -425,7 +426,7 @@ fn deployed_detail(rows: &[PaperPosition]) -> Markup {
         div."wrap" style="margin-top:10px" {
             table style="min-width:940px" {
                 thead { tr {
-                    th."l" { "pool" } th."l" { "sleeve" } th { "bin step" } th { "fee tier" }
+                    th."l" { "pool" } th."l" { "address" } th."l" { "sleeve" } th { "bin step" } th { "fee tier" }
                     th { "bins" } th { "deployed" } th { "share" } th { "value now" }
                     th."l grow" { "composition now" }
                 } }
@@ -434,6 +435,7 @@ fn deployed_detail(rows: &[PaperPosition]) -> Markup {
                         @let share = r.base_share();
                         tr {
                             td."l name" { (r.name) }
+                            td."l" { (meteora_link(&r.pool)) }
                             td."l mute" { (r.strategy) }
                             td { (r.bin_step.unwrap_or(0)) " bps" }
                             td."mute" { (f(r.base_fee_pct, 2)) "%" }
