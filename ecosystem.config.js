@@ -3,14 +3,28 @@
 //
 //   pm2 start ecosystem.config.js
 //   pm2 logs memet-worker
-//   pm2 restart memet-worker
 //
-// Override the database with MEMET_DSN / DATABASE_URL in the environment
-// rather than editing this file.
+// Configuration comes from .env in this directory (gitignored, chmod 600).
+// The DSN is a libpq keyword string and contains spaces, so it must stay
+// quoted there; dotenv handles that, a bare shell `source` does not.
 
-const PY = process.env.MEMET_PYTHON || "python3";
-const DSN = process.env.MEMET_DSN || "dbname=db_memet";
-const DB_URL = process.env.DATABASE_URL || "postgres:///db_memet";
+const { readFileSync, existsSync } = require("fs");
+const { join } = require("path");
+
+function loadEnv() {
+  const file = join(__dirname, ".env");
+  if (!existsSync(file)) return {};
+  const out = {};
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/);
+    if (!m) continue;
+    out[m[1]] = m[2].trim().replace(/^["'](.*)["']$/, "$1");
+  }
+  return out;
+}
+
+const env = loadEnv();
+const PY = process.env.MEMET_PYTHON || join(__dirname, ".venv/bin/python");
 
 module.exports = {
   apps: [
@@ -18,22 +32,21 @@ module.exports = {
       name: "memet-worker",
       script: "ingest/main.py",
       interpreter: PY,
-      args: "worker",
+      // budget and posture are the two settings worth changing by hand;
+      // everything else the engine decides for itself
+      args: "worker --budget 800 --max-positions 12 --posture stability",
       cwd: __dirname,
-      // one scheduler only: two would double-write every snapshot
-      instances: 1,
+      instances: 1,          // two schedulers would double-write every snapshot
       exec_mode: "fork",
       autorestart: true,
-      // the worker exits non-zero only when a task fails repeatedly;
-      // back off rather than hammering a broken API or database
-      restart_delay: 10000,
+      restart_delay: 10000,  // back off rather than hammer a broken API
       max_restarts: 20,
       min_uptime: "60s",
-      kill_timeout: 30000,      // let an in-flight tick finish on SIGTERM
-      max_memory_restart: "300M",
+      kill_timeout: 30000,   // let an in-flight tick finish on SIGTERM
+      max_memory_restart: "400M",
       env: {
-        PYTHONUNBUFFERED: "1",  // without this pm2 sees nothing until the buffer flushes
-        MEMET_DSN: DSN,
+        PYTHONUNBUFFERED: "1",   // without this pm2 sees nothing until the buffer flushes
+        MEMET_DSN: env.MEMET_DSN || "dbname=db_memet",
       },
     },
     {
@@ -48,9 +61,9 @@ module.exports = {
       kill_timeout: 10000,
       max_memory_restart: "300M",
       env: {
-        DATABASE_URL: DB_URL,
-        BIND_ADDR: process.env.BIND_ADDR || "127.0.0.1:8080",
-        RUST_LOG: process.env.RUST_LOG || "memet_web=info,tower_http=warn",
+        DATABASE_URL: env.DATABASE_URL || "postgres:///db_memet",
+        BIND_ADDR: env.BIND_ADDR || "127.0.0.1:8080",
+        RUST_LOG: "memet_web=info,tower_http=warn",
       },
     },
   ],
