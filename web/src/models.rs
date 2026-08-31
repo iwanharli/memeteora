@@ -27,6 +27,8 @@ pub struct PoolScore {
     pub base_fee_pct: Option<f64>,
     pub quote_only_fees: Option<bool>,
     pub risk_flags: Option<Vec<String>>,
+    /// 24h hourly price series, for the sparkline. Empty when the pool is new.
+    pub series: Option<Vec<f64>>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
@@ -85,15 +87,16 @@ impl Filters {
     /// Whitelisted so the sort key can never reach SQL as user text.
     pub fn order_sql(&self) -> &'static str {
         match self.sort.as_deref() {
-            Some("opportunity") => "opportunity DESC NULLS LAST",
-            Some("risk") => "risk ASC NULLS LAST",
-            Some("fee") => "fee_day_pct DESC NULLS LAST",
-            Some("floor") => "floor_pct DESC NULLS LAST",
-            Some("edge") => "edge_pct DESC NULLS LAST",
-            Some("edge_lvr") => "edge_lvr_pct DESC NULLS LAST",
-            Some("lvr") => "lvr_daily_pct ASC NULLS LAST",
-            Some("sigma") => "sigma_daily ASC NULLS LAST",
-            _ => "adjusted DESC NULLS LAST",
+            // qualified: the sparkline join brings a second `pool` into scope
+            Some("opportunity") => "v.opportunity DESC NULLS LAST",
+            Some("risk") => "v.risk ASC NULLS LAST",
+            Some("fee") => "v.fee_day_pct DESC NULLS LAST",
+            Some("floor") => "v.floor_pct DESC NULLS LAST",
+            Some("edge") => "v.edge_pct DESC NULLS LAST",
+            Some("edge_lvr") => "v.edge_lvr_pct DESC NULLS LAST",
+            Some("lvr") => "v.lvr_daily_pct ASC NULLS LAST",
+            Some("sigma") => "v.sigma_daily ASC NULLS LAST",
+            _ => "v.adjusted DESC NULLS LAST",
         }
     }
     pub fn sort_key(&self) -> &str { self.sort.as_deref().unwrap_or("adjusted") }

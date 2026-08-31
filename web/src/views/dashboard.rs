@@ -7,6 +7,32 @@ fn pct(v: Option<f64>) -> String {
     match v { Some(x) => format!("{:.1}%", x * 100.0), None => "–".into() }
 }
 
+/// A 24-hour price line. It answers what a volatility number cannot: whether
+/// the pool is drifting, ranging, or falling off a cliff. Each line is scaled
+/// to its own range, so the shape is comparable across pools whose prices
+/// differ by orders of magnitude - only the direction and character carry over.
+fn spark(series: Option<&Vec<f64>>) -> Markup {
+    let Some(v) = series else { return html! { span."dim" { "–" } } };
+    if v.len() < 3 {
+        return html! { span."dim" { "–" } };
+    }
+    let (lo, hi) = v.iter().fold((f64::MAX, f64::MIN), |(a, b), x| (a.min(*x), b.max(*x)));
+    let span = (hi - lo).max(f64::EPSILON);
+    let (w, h) = (74.0_f64, 22.0_f64);
+    let step = w / (v.len() - 1) as f64;
+    let pts: Vec<String> = v.iter().enumerate()
+        .map(|(i, x)| format!("{:.1},{:.1}", i as f64 * step, h - ((x - lo) / span) * h))
+        .collect();
+    let rising = v.last().unwrap() >= v.first().unwrap();
+    html! {
+        svg."spark" viewBox={ "0 0 " (w) " " (h) } preserveAspectRatio="none" {
+            polyline points=(pts.join(" ")) fill="none" stroke="currentColor"
+                     stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"
+                     class=(if rising { "sp-up" } else { "sp-down" }) {}
+        }
+    }
+}
+
 /// At most two chips, then a count. Wrapping flags broke the row rhythm and
 /// made a scan down the table impossible.
 const FLAG_LIMIT: usize = 2;
@@ -131,47 +157,55 @@ fn table(rows: &[PoolScore], fl: &Filters) -> Markup {
     html! {
         div."wrap" {
             table {
-                thead { tr {
-                    th."l" { "#" }
-                    th."l" { "pool" }
-                    th."l" { "address" }
-                    (sortable("adj", "adjusted", fl))
-                    (sortable("opp", "opportunity", fl))
-                    (sortable("risk", "risk", fl))
-                    (sortable("fee/d", "fee", fl))
-                    (sortable("floor", "floor", fl))
-                    th { "cv" }
-                    th { "turn" }
-                    (sortable("σ/day", "sigma", fl))
-                    (sortable("LVR", "lvr", fl))
-                    (sortable("edge", "edge_lvr", fl))
-                    th { "brkevn" }
-                    th { "bin" }
-                    th."grow" { "flags" }
-                } }
+                thead {
+                    tr."grouprow" {
+                        th."l" colspan="4" { "pool" }
+                        th colspan="3" { "economics" }
+                        th colspan="4" { "quality" }
+                        th colspan="2" { "score" }
+                        th."l grow" colspan="2" { "" }
+                    }
+                    tr {
+                        th."l" { "#" }
+                        th."l" { "pool" }
+                        th."l" { "address" }
+                        th."l sparkcell" { "24h" }
+                        (sortable("edge", "edge_lvr", fl))
+                        (sortable("fee/d", "fee", fl))
+                        (sortable("LVR", "lvr", fl))
+                        (sortable("σ/day", "sigma", fl))
+                        th { "turn" }
+                        th { "brkevn" }
+                        (sortable("floor", "floor", fl))
+                        (sortable("risk", "risk", fl))
+                        (sortable("adj", "adjusted", fl))
+                        th { "bin" }
+                        th."grow" { "flags" }
+                    }
+                }
                 tbody {
                     @for (i, r) in rows.iter().enumerate() {
                         tr {
                             td."l idx" { (i + 1) }
                             td."l name" { a href={ "/pool/" (r.pool) } { (r.name) } }
                             td."l" { (meteora_link(&r.pool)) }
-                            td."key" { (f(Some(r.adjusted), 1)) }
-                            td."mute" { (f(Some(r.opportunity), 1)) }
-                            td { span class={ "rk " (risk_band(r.risk)) } { (f(Some(r.risk), 1)) } }
+                            td."l sparkcell" { (spark(r.series.as_ref())) }
+                            td class={ "edgecell " (edge_class(r.edge_lvr_pct)) } {
+                                (signed(r.edge_lvr_pct, 2)) }
                             td {
                                 (f(r.fee_day_pct, 2)) "%"
                                 @if r.quote_only_fees.unwrap_or(false) {
                                     span."q" title="fees paid in the quote token only" { "Q" }
                                 }
                             }
-                            td { (f(r.floor_pct, 2)) }
-                            td."mute" { (f(r.cv, 2)) }
-                            td."mute" { (f(r.turnover, 1)) "x" }
+                            td."dim" { (f(r.lvr_daily_pct, 2)) }
                             td { (pct(r.sigma_daily)) }
-                            td."mute" { (f(r.lvr_daily_pct, 2)) }
-                            td class={ "lead " (edge_class(r.edge_lvr_pct)) } {
-                                (signed(r.edge_lvr_pct, 2)) }
-                            td class=(brk_class(r.breakeven_turnover, r.turnover)) { (f(r.breakeven_turnover, 1)) "x" }
+                            td."mute" { (f(r.turnover, 1)) "x" }
+                            td class=(brk_class(r.breakeven_turnover, r.turnover)) {
+                                (f(r.breakeven_turnover, 1)) "x" }
+                            td."mute" { (f(r.floor_pct, 2)) }
+                            td { span class={ "rk " (risk_band(r.risk)) } { (f(Some(r.risk), 1)) } }
+                            td."key" { (f(Some(r.adjusted), 1)) }
                             td."mute" { (r.bin_step.unwrap_or(0)) }
                             td."grow" { div."flags" {
                                 @let all = r.risk_flags.as_deref().unwrap_or(&[]);

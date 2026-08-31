@@ -171,7 +171,7 @@ tbody tr:last-child td{border-bottom:0}
 tbody tr:hover td{background:var(--panel2)}
 th:first-child,td:first-child,th.l,td.l{text-align:left}
 /* the flag column absorbs spare width so the figures stay grouped */
-th.grow,td.grow{width:99%;text-align:left;padding-left:22px}
+th.grow,td.grow{width:100%;text-align:left;padding-left:20px}
 th a{color:var(--dim)} th a:hover,th.on a{color:var(--ink)}
 
 /* hierarchy: identity and the deciding number carry weight, the rest recede */
@@ -194,6 +194,37 @@ td.mute{color:var(--dim)}
 .flag.good{background:color-mix(in srgb,var(--pos) 15%,transparent);color:var(--pos)}
 .more{font-size:11px;color:var(--dim)}
 /* the address links out to Meteora; muted so it never competes with the name */
+/* ---------- screener table ---------- */
+/* A grouped band above the header. Sixteen columns with equal weight is a wall;
+   naming the groups lets the eye find the economics without reading every
+   label. */
+.grouprow th{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--dim);opacity:.65;padding:7px 12px 3px;background:var(--panel2);
+  border-bottom:0;font-weight:600}
+.grouprow th:not(:first-child){border-left:1px solid var(--line)}
+thead tr:last-child th:not(:first-child).grpstart{border-left:1px solid var(--line)}
+
+/* The deciding number, given the weight it deserves.
+   Named `edgecell`, not `hero`: the portfolio page already owns `.hero` as a
+   grid container, and the collision turned this table cell into a grid whose
+   minmax(330px,1fr) blew the column out to 350px. */
+td.edgecell{font-size:15px;font-weight:680;letter-spacing:-.01em}
+
+.spark{width:74px;height:22px;display:block;overflow:visible}
+/* In auto table layout, width and max-width on a cell are suggestions, so the
+   sparkline column stretched 480px and left a hole before the number it sits
+   beside. Pinning the SVG and letting the flags column claim all the slack is
+   what actually holds. */
+.sparkcell{width:86px}
+.sparkcell .spark{width:74px}
+/* Auto table layout hands leftover width to whichever column has the widest
+   content - here the larger `edge` cell, which opened a 400px hole beside the
+   sparkline. Pinning every column to its content and letting one claim the
+   remainder is the layout that actually holds. */
+.wrap table th,.wrap table td{width:1%;white-space:nowrap}
+.wrap table th.grow,.wrap table td.grow{width:100%}
+.sp-up{color:var(--pos)} .sp-down{color:var(--neg)}
+
 /* ---------- daily ---------- */
 .daily{background:var(--panel);border:1px solid var(--line);border-radius:10px;
   overflow:hidden}

@@ -9,33 +9,36 @@ pub async fn pool(url: &str) -> Result<PgPool> {
 }
 
 pub async fn latest_scores(db: &PgPool, f: &Filters) -> Result<Vec<PoolScore>> {
-    // order_sql() is a fixed whitelist, never user text
+    // order_sql() is a fixed whitelist, never user text.
+    // Both views expose a `pool` column, so every reference is qualified.
     let sql = format!(
-        "SELECT ts, name, pool,
-                opportunity::float8   AS opportunity,
-                risk::float8          AS risk,
-                adjusted::float8      AS adjusted,
-                fee_day_pct::float8   AS fee_day_pct,
-                floor_pct::float8     AS floor_pct,
-                cv::float8            AS cv,
-                momentum::float8      AS momentum,
-                turnover::float8      AS turnover,
-                il_est_pct::float8    AS il_est_pct,
-                edge_pct::float8      AS edge_pct,
-                sigma_daily::float8       AS sigma_daily,
-                lvr_daily_pct::float8     AS lvr_daily_pct,
-                edge_lvr_pct::float8      AS edge_lvr_pct,
-                breakeven_turnover::float8 AS breakeven_turnover,
-                vol_source,
-                bin_step,
-                base_fee_pct::float8  AS base_fee_pct,
-                quote_only_fees,
-                risk_flags
-         FROM v_latest_scores
-         WHERE risk <= $1 AND opportunity >= $2
-           AND ($3 = FALSE OR edge_pct > 0)
-           AND ($4 = FALSE OR edge_lvr_pct > 0)
-           AND ($5 = FALSE OR quote_only_fees)
+        "SELECT v.ts, v.name, v.pool,
+                v.opportunity::float8        AS opportunity,
+                v.risk::float8               AS risk,
+                v.adjusted::float8           AS adjusted,
+                v.fee_day_pct::float8        AS fee_day_pct,
+                v.floor_pct::float8          AS floor_pct,
+                v.cv::float8                 AS cv,
+                v.momentum::float8           AS momentum,
+                v.turnover::float8           AS turnover,
+                v.il_est_pct::float8         AS il_est_pct,
+                v.edge_pct::float8           AS edge_pct,
+                v.sigma_daily::float8        AS sigma_daily,
+                v.lvr_daily_pct::float8      AS lvr_daily_pct,
+                v.edge_lvr_pct::float8       AS edge_lvr_pct,
+                v.breakeven_turnover::float8 AS breakeven_turnover,
+                v.vol_source,
+                v.bin_step,
+                v.base_fee_pct::float8       AS base_fee_pct,
+                v.quote_only_fees,
+                v.risk_flags,
+                sp.series
+         FROM v_latest_scores v
+         LEFT JOIN v_spark sp ON sp.pool = v.pool
+         WHERE v.risk <= $1 AND v.opportunity >= $2
+           AND ($3 = FALSE OR v.edge_pct > 0)
+           AND ($4 = FALSE OR v.edge_lvr_pct > 0)
+           AND ($5 = FALSE OR v.quote_only_fees)
          ORDER BY {} LIMIT $6",
         f.order_sql()
     );
@@ -75,7 +78,8 @@ pub async fn latest_score_for(db: &PgPool, addr: &str) -> Result<Option<PoolScor
                 sigma_daily::float8 AS sigma_daily, lvr_daily_pct::float8 AS lvr_daily_pct,
                 edge_lvr_pct::float8 AS edge_lvr_pct,
                 breakeven_turnover::float8 AS breakeven_turnover, vol_source,
-                bin_step, base_fee_pct::float8 AS base_fee_pct, quote_only_fees, risk_flags
+                bin_step, base_fee_pct::float8 AS base_fee_pct, quote_only_fees,
+                risk_flags, NULL::float8[] AS series
          FROM v_latest_scores WHERE pool = $1",
     )
     .bind(addr)
