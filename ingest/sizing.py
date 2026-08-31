@@ -307,6 +307,24 @@ def plan_book(budget, candidates, sol_price, max_positions=12, sleeves=None,
     return out, meta
 
 
+def geometry(sigma_daily, bin_step_bps, sleeve="core", edge=None,
+             horizon_days=1.0, max_bins=1400):
+    """-> (bins, shape, reason). The two decisions are one decision.
+
+    Width comes first, from how often the sleeve is willing to fall out of
+    range. Shape then follows from the coverage that width produces: a range
+    covering two sigmas should concentrate at its centre, one covering half a
+    sigma will be crossed end to end and should weight the edges instead.
+    """
+    target = COVERAGE_TARGET.get(sleeve, 1.0)
+    bins = bins_for_range(sigma_daily, bin_step_bps, horizon_days, target, max_bins)
+    shape, why = choose_shape(sigma_daily, bin_step_bps, bins, sleeve, edge,
+                              horizon_days)
+    cov = range_coverage(sigma_daily, bin_step_bps, bins, horizon_days)
+    capped = " (capped at the 1400-bin limit)" if bins >= max_bins else ""
+    return bins, shape, (f"{bins} bins for {cov:.2f}x sigma{capped}; {why}")
+
+
 def bins_for_range(sigma_daily, bin_step_bps, horizon_days=1.0, sigmas=1.0,
                    max_bins=1400):
     """How many bins a position needs to cover `sigmas` of drift over `horizon`.
@@ -327,3 +345,56 @@ def bins_for_range(sigma_daily, bin_step_bps, horizon_days=1.0, sigmas=1.0,
     half = max(1, math.ceil(half_log / per_bin))
     n = 2 * half + 1
     return int(min(n, max_bins))
+
+
+# ---------------------------------------------------------------- shape
+# What the observed data says about the three distributions:
+#
+#   Curve concentrates near the active price. It earned the most fees of the
+#   three in the live test - 4.16 against spot's 3.36 and bid-ask's 2.58 on the
+#   same pool, same entry - and it also suffered the largest inventory loss,
+#   -16.22 against -14.53. Concentration amplifies fee capture and inventory
+#   damage together; it is leverage on the position, not free efficiency.
+#
+#   So the choice is not about which shape is better. It is about whether the
+#   price is likely to stay where the concentration is, and that is measurable:
+#   how many daily sigmas the range covers.
+COVERAGE_CONCENTRATE = 1.5     # range wide enough that price should stay central
+COVERAGE_SPREAD = 0.7          # below this the price traverses the whole range
+
+# How wide a range each sleeve aims for, in daily sigmas. This is an operational
+# choice - it decides how often the position falls out and has to be paid for
+# again - and the shape then follows from the geometry it produces. Core buys
+# resilience; satellite accepts more maintenance for tighter capital.
+COVERAGE_TARGET = {"core": 2.0, "satellite": 1.0}
+
+
+def range_coverage(sigma_daily, bin_step_bps, bins, horizon_days=1.0):
+    """Half the range width, measured in daily standard deviations."""
+    import math
+    if not sigma_daily or sigma_daily <= 0 or not bin_step_bps:
+        return 0.0
+    half_log = (bins // 2) * math.log(1 + bin_step_bps / 1e4)
+    return half_log / (sigma_daily * math.sqrt(horizon_days))
+
+
+def choose_shape(sigma_daily, bin_step_bps, bins, sleeve="core", edge=None,
+                 horizon_days=1.0):
+    """-> (shape, reason). Chosen from coverage, not from preference."""
+    cov = range_coverage(sigma_daily, bin_step_bps, bins, horizon_days)
+
+    # A thin edge does not pay for concentration: curve's extra fee capture is
+    # a fraction of an already small number, while its extra inventory loss is
+    # not scaled down at all.
+    if edge is not None and edge < 1.0 and cov < COVERAGE_CONCENTRATE:
+        return "spot", (f"edge {edge:+.2f}%/day is too thin to pay for "
+                        f"concentration at {cov:.2f}x sigma coverage")
+
+    if cov >= COVERAGE_CONCENTRATE:
+        return "curve", (f"range covers {cov:.2f}x daily sigma - the price should "
+                         "stay near the centre, where curve puts the liquidity")
+    if cov >= COVERAGE_SPREAD:
+        return "spot", (f"range covers {cov:.2f}x daily sigma - too narrow to "
+                        "concentrate, wide enough to sit evenly")
+    return "bidask", (f"range covers only {cov:.2f}x daily sigma - the price will "
+                      "cross the whole of it, so weight the edges it converts at")

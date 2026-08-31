@@ -544,10 +544,16 @@ def cmd_manage(a):
                 size = min(x["usd"], free - sizing.rent_usd(sol))
                 if size < floor:
                     continue
-                pid = _open_paper(cur, x["pool"], size, a.shape, a.bins,
+                # width and shape are chosen from the pool's own volatility
+                # rather than fixed: see sizing.geometry
+                cur.execute("SELECT bin_step FROM pools WHERE address=%s", (x["pool"],))
+                bstep = (cur.fetchone() or [None])[0]
+                bins, shape, geo = sizing.geometry(
+                    x["sigma"], bstep, x["sleeve"], x["edge"])
+                pid = _open_paper(cur, x["pool"], size, shape, bins,
                                   x["sleeve"],
                                   f"{x['sleeve']}: edge={x['edge']:.2f} "
-                                  f"sigma={x['sigma']*100:.1f}% kelly={x['kelly']:.3f}")
+                                  f"sigma={x['sigma']*100:.1f}% kelly={x['kelly']:.3f} | {geo}")
                 if not pid:
                     continue
                 db.log_action(cur, "add",
@@ -567,7 +573,8 @@ def cmd_manage(a):
                 free -= size + sizing.rent_usd(sol)
                 did["add"] += 1
                 log.append(f"[{x['sleeve']:<9}] added {x['name']} ${size:.0f} "
-                           f"(edge {x['edge']:+.2f}, sigma {x['sigma'] * 100:.0f}%)")
+                           f"{shape}/{bins}bin (edge {x['edge']:+.2f}, "
+                           f"sigma {x['sigma'] * 100:.0f}%)")
 
             # record what the split actually came out as, from the allocator
             deployed_now = db.deployed_total(cur)
