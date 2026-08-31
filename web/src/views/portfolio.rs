@@ -122,12 +122,7 @@ pub fn page(rows: &[PaperPosition], closed: &[ClosedPosition],
                 "against holding rather than against deposit."
             }
 
-            @for g in ["core", "satellite", "rekomendasi", "barbell", "bersambung",
-                       "kontrol-negatif", "uji-bentuk", "uji-lebar"] {
-                (section(rows, g))
-            }
-            (section_other(rows))
-            (closed_section(closed))
+            (positions_card(rows, closed))
         }
     };
     super::layout::shell("Portfolio", sub, body)
@@ -175,68 +170,9 @@ fn cls(v: f64) -> &'static str {
     if v > 0.0 { "pos" } else if v < 0.0 { "neg" } else { "dim" }
 }
 
-fn label(group: &str) -> (&'static str, &'static str) {
-    match group {
-        "rekomendasi" => ("Recommended", "what the engine says to deploy into"),
-        "kontrol-negatif" => ("Negative control", "red-flagged — if these win, the model is wrong"),
-        "uji-bentuk" => ("Shape test", "same pool, same entry, only the distribution differs"),
-        "uji-lebar" => ("Width test", "same pool, same shape, only the bin count differs"),
-        "core" => ("Core", "verified, widely held, volatility under 10%/day — 70% of the book"),
-        "satellite" => ("Satellite", "memecoins — 30% of the book, small stakes, fast upside"),
-        "barbell" => ("Barbell", "one pool, three positions: concentrated core plus wide flanks — a shape no single position can express"),
-        "bersambung" => ("Tiled", "one pool, three positions side by side to clear the 69-bin cap"),
-        _ => ("Other", ""),
-    }
-}
 
-fn section(rows: &[PaperPosition], group: &str) -> Markup {
-    let subset: Vec<&PaperPosition> = rows.iter().filter(|r| r.strategy == group).collect();
-    if subset.is_empty() {
-        return html! {};
-    }
-    let (title, why) = label(group);
-    html! {
-        h2 { (title) " " span."dim" style="font-weight:400;font-size:12px" { "— " (why) } }
-        (table(&subset))
-        @if subset.len() > 1 { (subtotal(&subset)) }
-    }
-}
 
-/// Positions that belong to one strategy have to be judged as one thing.
-/// A flank sitting out of range is not a losing position, it is half a plan.
-fn subtotal(rows: &[&PaperPosition]) -> Markup {
-    let cap: f64 = rows.iter().map(|r| r.capital_usd).sum();
-    let val: f64 = rows.iter().filter_map(|r| r.value_usd).sum();
-    let fees: f64 = rows.iter().filter_map(|r| r.fees_usd).sum();
-    let hold: f64 = rows.iter().filter_map(|r| r.hold_usd).sum();
-    let pnl: f64 = rows.iter().filter_map(|r| r.net_pnl).sum();
-    let rent: f64 = rows.iter().filter_map(|r| r.rent_usd).sum();
-    let inr = rows.iter().filter(|r| r.in_range.unwrap_or(false)).count();
-    html! {
-        p."note" style="margin-top:8px" {
-            "Combined: " strong { (usd(Some(cap))) } " deployed · "
-            "liquidity " strong { (usd(Some(val))) } " · "
-            "fees " strong."pos" { (f(Some(fees), 3)) } " · "
-            "if held " strong { (usd(Some(hold))) } " · "
-            "rent locked " strong { (usd(Some(rent))) }
-            " (" (format!("{:.0}", rent / cap * 100.0)) "% of capital) · "
-            "net vs hold " strong class=(cls(pnl)) { (signed(Some(pnl), 2)) }
-            " (" (signed(Some(pnl / cap * 100.0), 3)) "%) · "
-            (inr) "/" (rows.len()) " in range"
-        }
-    }
-}
 
-fn section_other(rows: &[PaperPosition]) -> Markup {
-    let known = ["core", "satellite", "rekomendasi", "barbell", "bersambung",
-                 "kontrol-negatif", "uji-bentuk", "uji-lebar"];
-    let subset: Vec<&PaperPosition> =
-        rows.iter().filter(|r| !known.contains(&r.strategy.as_str())).collect();
-    if subset.is_empty() {
-        return html! {};
-    }
-    html! { h2 { "Other" } (table(&subset)) }
-}
 
 /// Bin ids plus the prices they sit at, with a marker for where the price is
 /// inside the range. The ids alone say nothing you can check against a chart.
@@ -248,14 +184,19 @@ fn range_cell(r: &PaperPosition) -> Markup {
     let pos = r.range_position();
     html! {
         div."rng" {
-            span."rng-ids" { (lo.unwrap()) " … " (hi.unwrap()) }
+            // Price leads: bin ids are the machine's index, prices are the
+            // number the reader can compare against the market.
+            span."rng-px" { (price(r.min_price)) " – " (price(r.max_price)) }
             @if let Some(p) = pos {
                 div."rng-bar" {
                     div."rng-dot" style=(format!("left:{:.1}%", p * 100.0)) {}
                 }
             }
-            span."rng-px" {
-                (price(r.min_price)) " – " (price(r.max_price))
+            span."rng-ids" {
+                @if let Some(q) = r.quote_symbol.as_ref() {
+                    (q) " per " (r.base_symbol.clone().unwrap_or_default()) " · "
+                }
+                "bin " (lo.unwrap()) " … " (hi.unwrap())
             }
         }
     }
@@ -284,122 +225,12 @@ fn exit_cell(r: &PaperPosition) -> Markup {
         Some("soft") => html! {
             span."flag" title=(reasons.join(" · ")) { "watch" }
         },
-        _ => html! { span."dim" { "–" } },
-    }
-}
-
-fn table(rows: &[&PaperPosition]) -> Markup {
-    html! {
-        div."wrap" {
-            table style="min-width:1000px" {
-                thead { tr {
-                    th."l" { "pool" }
-                    th."l" { "address" }
-                    th."l" { "shape" }
-                    th { "bins" }
-                    th."l" { "range · bin ids and price" }
-                    th { "hrs" }
-                    th { "deposit" }
-                    th { "liquidity" }
-                    th { "fees" }
-                    th { "if held" }
-                    th { "price PnL" }
-                    th { "gas" }
-                    th { "rent" }
-                    th { "net vs hold" }
-                    th { "%" }
-                    th { "edge" }
-                    th { "range" }
-                    th."l" { "exit" }
-                } }
-                tbody {
-                    @for r in rows {
-                        tr {
-                            td."l" { a href={ "/pool/" (r.pool) } { (r.name) }
-                                @if r.blocked.unwrap_or(false) {
-                                    span."flagdot" title="red-flagged pool" { "!" }
-                                } }
-                            td."l" { (meteora_link(&r.pool)) }
-                            td."l dim" { (r.shape) }
-                            td { (r.n_bins) }
-                            td."l" { (range_cell(r)) }
-                            td."dim" { (f(r.hours_open, 1)) }
-                            td { (usd(Some(r.capital_usd))) }
-                            td { (usd(r.value_usd)) }
-                            td class="pos" { (f(r.fees_usd, 3)) }
-                            td."dim" { (usd(r.hold_usd)) }
-                            td class=(cls(r.price_pnl().unwrap_or(0.0))) { (signed(r.price_pnl(), 2)) }
-                            td."dim" { (f(r.gas_usd, 3)) }
-                            td."dim" { (usd(r.rent_usd)) }
-                            td class=(cls(r.net_pnl.unwrap_or(0.0))) {
-                                strong { (signed(r.net_pnl, 2)) } }
-                            td class=(cls(r.pnl_pct.unwrap_or(0.0))) { (signed(r.pnl_pct, 3)) "%" }
-                            td."dim" { (signed(r.edge_lvr_pct, 2)) }
-                            td { @if r.in_range.unwrap_or(false) {
-                                    span."pill low" { "in" }
-                                 } @else {
-                                    span."pill high" {
-                                        "out" @if let Some(h) = r.hours_out {
-                                            " " (format!("{h:.0}h")) } }
-                                 } }
-                            td."l" { (exit_cell(r)) }
-                        }
-                    }
-                }
-            }
-        }
+        _ => html! {},
     }
 }
 
 
-/// Closed positions are the only realised evidence the engine produces. Marked
-/// positions can still recover; these cannot, so they are what the rules are
-/// finally judged on.
-fn closed_section(rows: &[ClosedPosition]) -> Markup {
-    if rows.is_empty() {
-        return html! {};
-    }
-    let pnl: f64 = rows.iter().filter_map(|r| r.realized_pnl).sum();
-    let cap: f64 = rows.iter().map(|r| r.capital_usd).sum();
-    html! {
-        h2 { "Closed" span."dim" { " — realised, acted on automatically" } }
-        div."wrap" {
-            table style="min-width:960px" {
-                thead { tr {
-                    th."l" { "pool" } th."l" { "address" } th."l" { "shape" } th { "bins" } th { "gen" }
-                    th { "held" } th { "deposit" } th { "fees" } th { "realised" }
-                    th { "%" } th."l grow" { "why it was closed" }
-                } }
-                tbody {
-                    @for r in rows {
-                        tr {
-                            td."l name" { (r.name) }
-                            td."l" { (meteora_link(&r.pool)) }
-                            td."l mute" { (r.shape) }
-                            td."mute" { (r.n_bins) }
-                            td."mute" { (r.generation) }
-                            td."mute" { (f(r.hours_held, 1)) "h" }
-                            td { (usd(Some(r.capital_usd))) }
-                            td."pos" { (f(r.realized_fees, 2)) }
-                            td class=(cls(r.realized_pnl.unwrap_or(0.0))) {
-                                (signed(r.realized_pnl, 2)) }
-                            td class=(cls(r.realized_pnl.unwrap_or(0.0))) {
-                                (signed(r.realized_pnl.map(|p| p / r.capital_usd * 100.0), 2)) "%" }
-                            td."l grow mute" { (r.close_reason.clone().unwrap_or_default()) }
-                        }
-                    }
-                }
-            }
-        }
-        p."note" {
-            "Realised across " (rows.len()) " closed positions: "
-            strong class=(cls(pnl)) { (signed(Some(pnl), 2)) }
-            " on " (usd(Some(cap))) " deployed ("
-            (signed(Some(pnl / cap.max(1.0) * 100.0), 2)) "%). These were closed by the "
-            "rules, not by hand — every one names the mechanism that triggered it."
-        }
-    }
-}
+
 
 
 /// Where the budget actually sits. Rent is shown apart from cash because it is
@@ -512,6 +343,220 @@ fn deployed_detail(rows: &[PaperPosition]) -> Markup {
                 " in quote (SOL/USDC). Positions are opened half in each, so any drift from "
                 "50/50 is the market having walked the price through the range — up moves sell "
                 "the base leg into quote, down moves buy it back."
+            }
+        }
+    }
+}
+
+
+// ---------------------------------------------------------------- positions card
+/// Live and closed positions in one card with a tab between them, following
+/// the shape of Meteora's own portfolio: a header that carries the totals, then
+/// rows whose primary value sits above its own context rather than beside it.
+/// Two lines per cell is what lets sixteen facts fit without a horizontal
+/// scroll bar.
+fn positions_card(rows: &[PaperPosition], closed: &[ClosedPosition]) -> Markup {
+    let deployed: f64 = rows.iter().map(|r| r.capital_usd).sum();
+    let net: f64 = rows.iter().filter_map(|r| r.net_pnl).sum();
+    let fees: f64 = rows.iter().filter_map(|r| r.fees_usd).sum();
+    let net_pct = if deployed > 0.0 { net / deployed * 100.0 } else { 0.0 };
+
+    let c_cap: f64 = closed.iter().map(|r| r.capital_usd).sum();
+    let c_pnl: f64 = closed.iter().filter_map(|r| r.realized_pnl).sum();
+    let c_fees: f64 = closed.iter().filter_map(|r| r.realized_fees).sum();
+
+    html! {
+        div."pcard" {
+            div."ptabs" {
+                input #"pos-live" type="radio" name="posview" checked;
+                label for="pos-live" { "Live positions" }
+                input #"pos-closed" type="radio" name="posview";
+                label for="pos-closed" { "Closed" }
+            }
+
+            div."pane pane-live" {
+                div."pcard-head" {
+                    span."pcard-icon" { "◧" }
+                    strong { "DLMM positions" }
+                    div."pcard-stats" {
+                        div { span."k" { "net vs hold" }
+                              span class={ "v " (cls(net)) } { (signed(Some(net), 2))
+                                  " " span."pct" { "(" (signed(Some(net_pct), 2)) "%)" } } }
+                        div { span."k" { "deployed" } span."v" { (usd(Some(deployed))) } }
+                        div { span."k" { "fees" } span."v pos" { (usd(Some(fees))) } }
+                        div { span."k" { "positions" } span."v" { (rows.len()) } }
+                    }
+                }
+                @if rows.is_empty() {
+                    div."empty" { "No open positions." }
+                } @else {
+                    (live_table(rows))
+                }
+            }
+
+            div."pane pane-closed" {
+                div."pcard-head" {
+                    span."pcard-icon" { "◨" }
+                    strong { "Closed positions" }
+                    div."pcard-stats" {
+                        div { span."k" { "realised" }
+                              span class={ "v " (cls(c_pnl)) } { (signed(Some(c_pnl), 2)) } }
+                        div { span."k" { "on" } span."v" { (usd(Some(c_cap))) } }
+                        div { span."k" { "fees" } span."v pos" { (usd(Some(c_fees))) } }
+                        div { span."k" { "closed" } span."v" { (closed.len()) } }
+                    }
+                }
+                @if closed.is_empty() {
+                    div."empty" { "Nothing closed yet." }
+                } @else {
+                    (closed_table(closed))
+                }
+            }
+        }
+    }
+}
+
+/// "6h ago", "2 days ago" - an absolute timestamp makes the reader do
+/// arithmetic to answer the question they actually have.
+fn ago(hours: Option<f64>) -> String {
+    match hours {
+        None => "–".into(),
+        Some(h) if h < 1.0 => format!("{:.0}m ago", h * 60.0),
+        Some(h) if h < 48.0 => format!("{h:.0}h ago"),
+        Some(h) => format!("{:.0} days ago", h / 24.0),
+    }
+}
+
+fn live_table(rows: &[PaperPosition]) -> Markup {
+    html! {
+        div."wrap plain" {
+            table style="min-width:1080px" {
+                thead { tr {
+                    th."l" { "pool / position" }
+                    th."l" { "PnL vs hold" }
+                    th."l" { "liquidity" }
+                    th."l" { "range" }
+                    th."l" { "fees" }
+                    th."l" { "cost" }
+                    th."l grow" { "status" }
+                } }
+                tbody {
+                    @for r in rows {
+                        tr {
+                            td."l" {
+                                div."two" {
+                                    span."t1" { a href={ "/pool/" (r.pool) } { (r.name) }
+                                        @if r.blocked.unwrap_or(false) {
+                                            span."flagdot" title="red-flagged pool" { "!" } } }
+                                    span."t2" {
+                                        "Bin step " (r.bin_step.unwrap_or(0))
+                                        " · Fee " (f(r.base_fee_pct, 2)) "%"
+                                        " · " (r.strategy)
+                                    }
+                                    span."t3" { (meteora_link(&r.pool)) " · opened " (ago(r.hours_open)) }
+                                }
+                            }
+                            td."l" {
+                                div."two" {
+                                    span class={ "t1 " (cls(r.net_pnl.unwrap_or(0.0))) } {
+                                        (signed(r.net_pnl, 2)) }
+                                    span class={ "t2 " (cls(r.pnl_pct.unwrap_or(0.0))) } {
+                                        (signed(r.pnl_pct, 3)) "%" }
+                                    span."t3" { "vs deposit "
+                                        (signed(r.value_usd.map(|v| v + r.fees_usd.unwrap_or(0.0)
+                                                                     - r.capital_usd), 2)) }
+                                }
+                            }
+                            td."l" {
+                                div."two" {
+                                    span."t1" { (usd(r.value_usd)) }
+                                    span."t2" { "deposit " (usd(Some(r.capital_usd))) }
+                                    @if let Some(sh) = r.base_share() {
+                                        span."t3" {
+                                            (format!("{:.0}%", sh * 100.0)) " "
+                                            (r.base_symbol.clone().unwrap_or_default())
+                                            " · " (format!("{:.0}%", (1.0 - sh) * 100.0)) " "
+                                            (r.quote_symbol.clone().unwrap_or_default())
+                                        }
+                                    }
+                                }
+                            }
+                            td."l" { (range_cell(r)) }
+                            td."l" {
+                                div."two" {
+                                    span."t1 pos" { (f(r.fees_usd, 3)) }
+                                    span."t2" { (r.shape) " · " (r.n_bins) " bins" }
+                                }
+                            }
+                            td."l" {
+                                div."two" {
+                                    span."t1 dim" { (usd(r.rent_usd)) }
+                                    span."t2" { "rent, refundable" }
+                                    span."t3" { "gas " (f(r.gas_usd, 3)) }
+                                }
+                            }
+                            td."l grow" {
+                                div."two" {
+                                    span."t1" {
+                                        @if r.in_range.unwrap_or(false) {
+                                            span."pill low" { "in range" }
+                                        } @else {
+                                            span."pill high" { "out"
+                                                @if let Some(h) = r.hours_out { " " (f(Some(h), 1)) "h" } }
+                                        }
+                                        (exit_cell(r))
+                                    }
+                                    @if let Some(fl) = r.exit_reasons.as_ref() {
+                                        @if !fl.is_empty() {
+                                            span."t2" { (fl[0].clone()) }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn closed_table(rows: &[ClosedPosition]) -> Markup {
+    html! {
+        div."wrap plain" {
+            table style="min-width:900px" {
+                thead { tr {
+                    th."l" { "pool" }
+                    th."l" { "realised" }
+                    th."l" { "deposit" }
+                    th."l" { "fees earned" }
+                    th."l grow" { "why it was closed" }
+                } }
+                tbody {
+                    @for r in rows {
+                        tr {
+                            td."l" {
+                                div."two" {
+                                    span."t1" { (r.name) }
+                                    span."t2" { (r.shape) " · " (r.n_bins) " bins · gen " (r.generation) }
+                                    span."t3" { (meteora_link(&r.pool)) " · held "
+                                        (f(r.hours_held, 1)) "h" }
+                                }
+                            }
+                            td."l" {
+                                div."two" {
+                                    span class={ "t1 " (cls(r.realized_pnl.unwrap_or(0.0))) } {
+                                        (signed(r.realized_pnl, 2)) }
+                                    span class={ "t2 " (cls(r.realized_pnl.unwrap_or(0.0))) } {
+                                        (signed(r.realized_pnl.map(|p| p / r.capital_usd * 100.0), 2)) "%" }
+                                }
+                            }
+                            td."l" { span."chip" { (usd(Some(r.capital_usd))) } }
+                            td."l" { span."chip pos" { (f(r.realized_fees, 2)) } }
+                            td."l grow mute" { (r.close_reason.clone().unwrap_or_default()) }
+                        }
+                    }
+                }
             }
         }
     }

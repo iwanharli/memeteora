@@ -169,11 +169,6 @@ impl PaperPosition {
 }
 
 impl PaperPosition {
-    /// Fees are income; this is what the inventory did on its own. Keeping the
-    /// two apart is the whole point of the page.
-    pub fn price_pnl(&self) -> Option<f64> {
-        Some(self.value_usd? - self.hold_usd?)
-    }
 }
 
 

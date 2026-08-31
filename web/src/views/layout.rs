@@ -194,6 +194,46 @@ td.mute{color:var(--dim)}
 .flag.good{background:color-mix(in srgb,var(--pos) 15%,transparent);color:var(--pos)}
 .more{font-size:11px;color:var(--dim)}
 /* the address links out to Meteora; muted so it never competes with the name */
+/* ---------- positions card ---------- */
+.pcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  overflow:hidden;margin-top:8px}
+/* radio-driven tabs: no script, and the choice survives the in-place refresh */
+.ptabs{display:flex;gap:2px;padding:10px 14px 0;border-bottom:1px solid var(--line);
+  background:var(--panel2)}
+.ptabs input{position:absolute;opacity:0;pointer-events:none}
+.ptabs label{font-size:13.5px;font-weight:550;color:var(--dim);padding:8px 14px 10px;
+  cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.ptabs label:hover{color:var(--ink2)}
+#pos-live:checked ~ label[for="pos-live"],
+#pos-closed:checked ~ label[for="pos-closed"]{color:var(--ink);border-bottom-color:var(--accent)}
+.pane-closed{display:none}
+.pcard:has(#pos-closed:checked) .pane-live{display:none}
+.pcard:has(#pos-closed:checked) .pane-closed{display:block}
+
+.pcard-head{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;
+  padding:13px 16px;border-bottom:1px solid var(--line)}
+.pcard-icon{display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;border-radius:6px;background:color-mix(in srgb,var(--accent) 18%,transparent);
+  color:var(--accent);font-size:13px}
+.pcard-head strong{font-size:14.5px}
+.pcard-stats{display:flex;gap:24px;flex-wrap:wrap;margin-left:auto}
+.pcard-stats .k{font-size:10.5px;color:var(--dim);display:block}
+.pcard-stats .v{font-size:14.5px;font-weight:620;margin-top:1px;display:block}
+.pcard-stats .pct{font-size:11.5px;font-weight:500;opacity:.85}
+
+/* a cell that stacks its value over its own context, rather than spreading
+   the context across more columns */
+.two{display:flex;flex-direction:column;gap:1px;line-height:1.35}
+.two .t1{font-size:14px;font-weight:600;color:var(--ink)}
+.two .t2{font-size:11.5px;color:var(--dim)}
+.two .t3{font-size:10.5px;color:var(--dim);opacity:.8}
+.wrap.plain{border:0;border-radius:0;background:transparent;box-shadow:none}
+.wrap.plain td{padding:11px 14px;vertical-align:top}
+.wrap.plain th{padding:9px 14px}
+.chip{display:inline-block;padding:3px 10px;border-radius:20px;background:var(--raise);
+  font-size:13px;font-weight:600;color:var(--ink)}
+.chip.pos{color:var(--pos);background:color-mix(in srgb,var(--pos) 12%,transparent)}
+
 /* ---------- screener table ---------- */
 /* A grouped band above the header. Sixteen columns with equal weight is a wall;
    naming the groups lets the eye find the economics without reading every
@@ -269,8 +309,8 @@ td.edgecell{font-size:15px;font-weight:680;letter-spacing:-.01em}
 .b-label{fill:var(--dim);font-size:9px;font-family:var(--ui)}
 
 .rng{display:flex;flex-direction:column;gap:2px;min-width:150px}
-.rng-ids{font-size:11.5px;color:var(--ink2)}
-.rng-px{font-size:10.5px;color:var(--dim)}
+.rng-px{font-size:13.5px;font-weight:600;color:var(--ink)}
+.rng-ids{font-size:10.5px;color:var(--dim);opacity:.8}
 .rng-bar{position:relative;height:3px;border-radius:2px;background:var(--line2)}
 .rng-dot{position:absolute;top:-2px;width:7px;height:7px;border-radius:50%;
   background:var(--accent);transform:translateX(-50%)}
