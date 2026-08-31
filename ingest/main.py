@@ -757,7 +757,10 @@ def main():
     mn.add_argument("--budget", type=float, default=0.0,
                     help="total capital for the whole book (0 disables adding)")
     mn.add_argument("--max-positions", type=int, default=12)
-    mn.add_argument("--shape", choices=["spot", "curve", "bidask"], default="curve")
+    # spot, matching the worker and the playbook: even distribution, lower
+    # maintenance. Running `manage` by hand used to open curve positions while
+    # the worker opened spot ones, so the same command produced two books.
+    mn.add_argument("--shape", choices=["spot", "curve", "bidask"], default="spot")
     mn.add_argument("--bins", type=int, default=69)
     mn.add_argument("--profile", choices=list(sizing.PROFILES),
                     default=sizing.DEFAULT_PROFILE)
