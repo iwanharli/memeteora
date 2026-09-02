@@ -66,7 +66,12 @@ module.exports = {
       min_uptime: "60s",
       max_memory_restart: "300M",
       env: {
-        DATABASE_URL: env.DATABASE_URL || "postgres:///db_memet",
+        // node-postgres reads a host-less URL as TCP to localhost, where
+        // pg_hba demands a password; libpq and sqlx read the same string as
+        // the unix socket. Naming the socket explicitly is what makes this
+        // work as root without putting a password in the process env.
+        DATABASE_URL: env.EXEC_DATABASE_URL ||
+          "postgres:///db_memet?host=/var/run/postgresql",
         FEE_SYNC_SECONDS: env.FEE_SYNC_SECONDS || "600",
         // the public endpoint rate-limits well before this matters, but a
         // paid one is what makes a shorter interval safe
