@@ -136,10 +136,6 @@ def fee_accrual(capital_usd, pool_fee_day_pct, shape, n_bins, active_off, hours)
 # real pool, not against a self-consistent test.
 
 
-def bin_price(bin_id, bin_step, dec_x, dec_y):
-    return (Decimal(1) + Decimal(bin_step) / 10000) ** bin_id * Decimal(10) ** (dec_x - dec_y)
-
-
 def claim_accrual(bins, chain, checkpoints, bin_step, dec_x, dec_y):
     """(fee_x, fee_y, bins_counted) in whole tokens, from the chain's own
     accumulators at our paper size.
@@ -172,7 +168,9 @@ def claim_accrual(bins, chain, checkpoints, bin_step, dec_x, dec_y):
         if (dfx == 0 and dfy == 0) or liq <= 0:
             continue
 
-        px = bin_price(bid, bin_step, dec_x, dec_y)
+        # the module's own bin_price, in float: this only forms a ratio, and
+        # the exactness that matters is in the integer accumulator delta below
+        px = Decimal(str(bin_price(bid, bin_step, dec_x, dec_y)))
         ours = Decimal(str(base)) * px + Decimal(str(quote))
         theirs = (amt_x / Decimal(10) ** dec_x) * px + amt_y / Decimal(10) ** dec_y
         if ours <= 0:
