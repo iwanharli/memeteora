@@ -18,7 +18,9 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { pool as db } from "./db.js";
 
-const RPC = process.env.SOLANA_RPC ?? "https://api.mainnet-beta.solana.com";
+// || not ??: pm2 passes an unset SOLANA_RPC through as an empty string,
+// which ?? happily accepts and the Connection constructor then rejects.
+const RPC = process.env.SOLANA_RPC || "https://api.mainnet-beta.solana.com";
 const connection = new Connection(RPC, "confirmed");
 const PROGRAM_ID = new PublicKey(LBCLMM_PROGRAM_IDS["mainnet-beta"]);
 
