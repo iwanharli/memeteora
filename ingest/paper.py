@@ -18,6 +18,7 @@ is relative to a position spread evenly over the same window. It assumes our
 size does not move the pool. See `fee_accrual`.
 """
 import json
+from decimal import Decimal
 
 # PositionV2 starts at a 70-bin layout and can be extended with
 # increasePositionLength / createExtendedEmptyPosition up to 1400 bins. The old
@@ -126,6 +127,71 @@ def fee_accrual(capital_usd, pool_fee_day_pct, shape, n_bins, active_off, hours)
         return 0.0
     concentration = w[active_off] * n_bins           # 1.0 for spot
     return capital_usd * (pool_fee_day_pct / 100.0) * (hours / 24.0) * concentration
+
+
+# ---------------------------------------------------------------- claimed fees
+# Both feeAmountPerTokenStored and liquiditySupply carry 64 fractional bits, so
+# their product carries 128 and the divisor is 2^128. Getting this wrong is not
+# subtle - it is off by a factor of 1.8e19 - but it only shows up against a
+# real pool, not against a self-consistent test.
+
+
+def bin_price(bin_id, bin_step, dec_x, dec_y):
+    return (Decimal(1) + Decimal(bin_step) / 10000) ** bin_id * Decimal(10) ** (dec_x - dec_y)
+
+
+def claim_accrual(bins, chain, checkpoints, bin_step, dec_x, dec_y):
+    """(fee_x, fee_y, bins_counted) in whole tokens, from the chain's own
+    accumulators at our paper size.
+
+    This mirrors what the DLMM program does when it settles a claim:
+
+        claimable = (feeAmountPerTokenStored - checkpoint) * liquidity_share
+
+    We hold no liquidity share on chain, so the delta is scaled by the share
+    our paper liquidity would have held in that bin. The denominator includes
+    our own deposit - adding liquidity dilutes the bin, and pretending it
+    would not is the difference between a counterfactual and a fantasy.
+
+    A bin with no checkpoint yet contributes nothing: the accumulator is
+    cumulative since the pool opened, and crediting all of that to a position
+    opened yesterday would invent fees that were earned by somebody else.
+    """
+    fx = fy = Decimal(0)
+    counted = 0
+    for bid, (base, quote) in bins.items():
+        row = chain.get(bid)
+        cp = checkpoints.get(bid)
+        if not row or not cp:
+            continue
+        fee_x_now, fee_y_now, liq, amt_x, amt_y = row
+        # the pool cannot un-earn a fee; a negative delta means the account was
+        # re-initialised, and the next checkpoint resyncs it
+        dfx = max(Decimal(0), fee_x_now - cp[0])
+        dfy = max(Decimal(0), fee_y_now - cp[1])
+        if (dfx == 0 and dfy == 0) or liq <= 0:
+            continue
+
+        px = bin_price(bid, bin_step, dec_x, dec_y)
+        ours = Decimal(str(base)) * px + Decimal(str(quote))
+        theirs = (amt_x / Decimal(10) ** dec_x) * px + amt_y / Decimal(10) ** dec_y
+        if ours <= 0:
+            continue
+        share = ours / (theirs + ours)
+
+        # The program settles this as
+        #     mulShr(share >> 64, delta, 64)
+        # - the share is shifted down before the multiply and the product is
+        # shifted again, so the divisor is 2^128, not 2^64. Integer floor
+        # division at both steps, because that is what the on-chain math does
+        # and rounding it differently drifts over thousands of marks.
+        ours_q64 = int(liq * share)
+        fx += Decimal((ours_q64 >> 64) * int(dfx) >> 64)
+        fy += Decimal((ours_q64 >> 64) * int(dfy) >> 64)
+        counted += 1
+    return (float(fx / Decimal(10) ** dec_x),
+            float(fy / Decimal(10) ** dec_y),
+            counted)
 
 
 def value_usd(bins, price_quote_per_base, quote_price_usd):

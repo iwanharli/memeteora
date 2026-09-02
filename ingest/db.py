@@ -225,6 +225,48 @@ def latest_fee_rate(cur, pool):
     return r[0] if r else None
 
 
+def bin_fees(cur, pool, bin_ids):
+    """{bin_id: (fee_x_per_token, fee_y_per_token, liquidity, amount_x, amount_y)}
+    as Decimals - the accumulators are u128 and a float loses the low bits a
+    two-minute interval actually moves."""
+    if not bin_ids:
+        return {}
+    cur.execute("""SELECT bin_id, fee_x_per_token, fee_y_per_token,
+                          liquidity_supply, amount_x, amount_y
+                     FROM bin_fees WHERE pool = %s AND bin_id = ANY(%s)""",
+                (pool, list(bin_ids)))
+    return {r[0]: (r[1], r[2], r[3], r[4], r[5]) for r in cur.fetchall()}
+
+
+def fee_checkpoints(cur, position_id):
+    cur.execute("""SELECT bin_id, fee_x_per_token, fee_y_per_token
+                     FROM paper_fee_checkpoints WHERE position_id = %s""",
+                (position_id,))
+    return {r[0]: (r[1], r[2]) for r in cur.fetchall()}
+
+
+def save_fee_checkpoints(cur, position_id, chain):
+    """Checkpoint every bin we hold, including ones that earned nothing this
+    tick - the next delta has to start from where this one ended."""
+    if not chain:
+        return
+    rows = [(position_id, bid, v[0], v[1]) for bid, v in chain.items()]
+    cur.executemany("""INSERT INTO paper_fee_checkpoints
+            (position_id, bin_id, fee_x_per_token, fee_y_per_token, synced_at)
+            VALUES (%s,%s,%s,%s,now())
+            ON CONFLICT (position_id, bin_id) DO UPDATE SET
+              fee_x_per_token = EXCLUDED.fee_x_per_token,
+              fee_y_per_token = EXCLUDED.fee_y_per_token,
+              synced_at = now()""", rows)
+
+
+def update_paper_claim(cur, position_id, cx, cy, usd):
+    cur.execute("""UPDATE paper_positions
+                      SET claim_x = %s, claim_y = %s, claim_fees_usd = %s,
+                          claim_synced_at = now()
+                    WHERE id = %s""", (cx, cy, usd, position_id))
+
+
 def quote_usd(cur, pool):
     """USD price of the quote leg, from the token row the API already gives us."""
     cur.execute("""SELECT t.symbol, s.base_price::float8, p.quote_symbol
@@ -266,9 +308,18 @@ def update_paper_position(cur, pid, bins_json, fees, rebalances, last_active,
 def insert_paper_mark(cur, row):
     cur.execute("""INSERT INTO paper_marks
         (position_id, ts, price, active_id, in_range, base_amt, quote_amt,
-         value_usd, fees_usd, hold_usd, pnl_vs_hold, gas_usd, rent_usd, net_pnl)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+         value_usd, fees_usd, hold_usd, pnl_vs_hold, gas_usd, rent_usd, net_pnl,
+         claim_fees_usd, claim_net_pnl)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (position_id, ts) DO NOTHING""", row)
+
+
+def paper_claim(cur, position_id):
+    """(claim_x, claim_y) so far, in whole tokens."""
+    cur.execute("""SELECT claim_x::float8, claim_y::float8
+                     FROM paper_positions WHERE id = %s""", (position_id,))
+    r = cur.fetchone()
+    return (r[0], r[1]) if r else (0.0, 0.0)
 
 
 def close_paper_position(cur, pid):

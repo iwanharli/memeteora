@@ -313,6 +313,21 @@ def _paper_mark(cur):
         fees = float(fees) + paper.fee_accrual(
             float(capital), rate, shape, n_bins, off if in_range else None, hours)
 
+        # The measured figure, kept beside the modelled one rather than
+        # replacing it: the chain's own per-bin accumulators, scaled to the
+        # share our paper liquidity would have held. bin_fees is filled by
+        # exec/src/binfees.ts; if that sync is behind or has never run, chain
+        # comes back empty and nothing is credited, which is the right answer -
+        # an unmeasured interval is not a zero-fee interval, and the next
+        # checkpoint picks the accumulator up where it left off.
+        chain = db.bin_fees(cur, pool, list(bins.keys()))
+        dcx, dcy, _nbins = paper.claim_accrual(
+            bins, chain, db.fee_checkpoints(cur, pid), bin_step, dec_x, dec_y)
+        db.save_fee_checkpoints(cur, pid, chain)
+        claim_x, claim_y = db.paper_claim(cur, pid)
+        claim_x += dcx
+        claim_y += dcy
+
         # a rebalance is a transition out of range, not every tick spent there;
         # counting ticks made a quiet position look like a frantic one
         left_range = (was_in_range is True) and not in_range
@@ -326,9 +341,14 @@ def _paper_mark(cur):
         gas_usd, rent_usd = paper.costs_usd(tx_count, sol)
         net = pnl - gas_usd
 
+        # base fees are token X, quote fees token Y; base_price_usd = price * qusd
+        claim_usd = claim_x * price * qusd + claim_y * qusd
+        claim_net = value + claim_usd - hold - gas_usd
+
         db.insert_paper_mark(cur, (pid, ts, price, active_id, in_range,
                                    base_amt, quote_amt, value, fees, hold, pnl,
-                                   gas_usd, rent_usd, net))
+                                   gas_usd, rent_usd, net, claim_usd, claim_net))
+        db.update_paper_claim(cur, pid, claim_x, claim_y, claim_usd)
         db.update_paper_position(cur, pid, paper.dumps(bins), fees, rebals,
                                  active_id, tx_count,
                                  paper.tx_cost_sol(tx_count), in_range)

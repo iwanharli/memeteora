@@ -50,6 +50,30 @@ module.exports = {
       },
     },
     {
+      // Reads the DLMM fee accumulators for the bins our paper positions hold.
+      // Public account reads only - no key, no position, no transaction. The
+      // interval is decoupled from the two-minute mark because the
+      // accumulators are cumulative: a mark that lands between syncs simply
+      // credits nothing and the next one catches up.
+      name: "memet-fees",
+      script: "npm",
+      args: "run fees",
+      cwd: join(__dirname, "exec"),
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      restart_delay: 15000,
+      min_uptime: "60s",
+      max_memory_restart: "300M",
+      env: {
+        DATABASE_URL: env.DATABASE_URL || "postgres:///db_memet",
+        FEE_SYNC_SECONDS: env.FEE_SYNC_SECONDS || "600",
+        // the public endpoint rate-limits well before this matters, but a
+        // paid one is what makes a shorter interval safe
+        SOLANA_RPC: env.SOLANA_RPC || "",
+      },
+    },
+    {
       name: "memet-web",
       script: "./web/target/release/memet-web",
       cwd: __dirname,

@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "dry-run": "tsx src/index.ts --dry-run",
-    "once": "tsx src/index.ts --dry-run --once"
+    "once": "tsx src/index.ts --dry-run --once",
+    "fees": "tsx src/fees.ts",
+    "fees-once": "tsx src/fees.ts --once"
   },
   "dependencies": {
     "@meteora-ag/dlmm": "^1.9.14",
